@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Chess } from "chess.js";
 import MoveList from "../../components/MoveList";
+import AnalysisPanel from "../../components/AnalysisPanel";
+import useStockfish from "../../hooks/useStockfish";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
   loading: () => <div className="placeholder">Loading board…</div>,
 });
+
+const MAX_DEPTH = 18;
 
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -42,6 +46,13 @@ export default function AnalyzePage() {
   const [error, setError] = useState("");
   const [pgnMoves, setPgnMoves] = useState(null);
   const [currentPly, setCurrentPly] = useState(-1);
+
+  const stockfish = useStockfish();
+
+  const turn = useMemo(() => {
+    const parts = fen.split(" ");
+    return parts[1] || "w";
+  }, [fen]);
 
   const updateStatus = useCallback((game) => {
     if (game.isCheckmate()) {
@@ -169,6 +180,10 @@ export default function AnalyzePage() {
   const displayedMoves = pgnMoves || moves;
   const activeIndex = pgnMoves ? currentPly : -1;
 
+  const handleAnalyze = useCallback(() => {
+    stockfish.analyze(fen, { depth: MAX_DEPTH });
+  }, [stockfish, fen]);
+
   return (
     <div>
       <h1>Analyze a game</h1>
@@ -191,6 +206,19 @@ export default function AnalyzePage() {
         </div>
         {error && <p className="input-error">{error}</p>}
       </div>
+
+      <AnalysisPanel
+        isReady={stockfish.isReady}
+        isAnalyzing={stockfish.isAnalyzing}
+        evalScore={stockfish.evalScore}
+        evalType={stockfish.evalType}
+        bestMove={stockfish.bestMove}
+        pv={stockfish.pv}
+        depth={stockfish.depth}
+        maxDepth={MAX_DEPTH}
+        turn={turn}
+        onAnalyze={handleAnalyze}
+      />
 
       <div className="board-layout">
         <ChessBoard
