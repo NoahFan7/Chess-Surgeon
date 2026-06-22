@@ -27,16 +27,26 @@ function detectFormat(text) {
   const trimmed = text.trim();
   if (!trimmed) return "empty";
 
-  if (trimmed.includes("/") && trimmed.split(" ").length <= 6) {
+  // Check for game URLs first (they contain "/" which would match FEN)
+  if (/lichess\.org|chess\.com/.test(trimmed)) {
+    return "gameid";
+  }
+
+  // Check for bare game IDs (8+ alphanumeric chars, no slashes)
+  if (/^[a-zA-Z0-9]{8,}$/.test(trimmed)) {
+    return "gameid";
+  }
+
+  // FEN: must have 8 ranks separated by "/" and a side-to-move field
+  // Pattern: 8 segments of [rnbqkpRNBQKP1-8] separated by /
+  const fenBoardPattern = /^([rnbqkpRNBQKP1-8]+\/){7}[rnbqkpRNBQKP1-8]+/;
+  if (fenBoardPattern.test(trimmed)) {
     return "fen";
   }
 
-  if (/\d+\.\s/.test(trimmed) || /^\s*[a-hNBRQK]/.test(trimmed)) {
+  // PGN: move numbers (1. ) or SAN moves at start
+  if (/\d+\.\s/.test(trimmed) || /^\s*[a-hNBRQKOx]/.test(trimmed)) {
     return "pgn";
-  }
-
-  if (/lichess\.org|chess\.com/.test(trimmed) || /^[a-zA-Z0-9]{8,}$/.test(trimmed)) {
-    return "gameid";
   }
 
   return "unknown";
