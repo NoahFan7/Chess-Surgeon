@@ -237,26 +237,35 @@ export default function AnalyzePage() {
   }, [fen]);
 
   // Generate coach message when position changes or classifications update
+  const lastCoachKeyRef = useRef("");
   useEffect(() => {
     const activeIndex = pgnMoves ? currentPly : moves.length - 1;
 
     if (activeIndex < 0 || !displayedMoves[activeIndex]) {
       setCoachClassification(null);
       setCoachMessage("Make a move and I'll coach you through it!");
+      lastCoachKeyRef.current = "empty";
       return;
     }
 
     const classification = classifications[activeIndex];
-    setCoachClassification(classification);
-
     const move = displayedMoves[activeIndex];
     const beforeFen = positionFens[activeIndex];
     const afterFen = positionFens[activeIndex + 1];
     const before = evalCache[beforeFen];
     const after = evalCache[afterFen];
 
-    if (classification && before && after && currentGame) {
-      // Full engine-based feedback
+    // Build a unique key for this message — only re-generate if something changed
+    const hasFullEval = classification && before && after && currentGame;
+    const messageKey = `${activeIndex}:${fen}:${classification || "none"}:${hasFullEval ? "full" : "partial"}`;
+
+    // Skip if we already generated this exact message
+    if (messageKey === lastCoachKeyRef.current) return;
+    lastCoachKeyRef.current = messageKey;
+
+    setCoachClassification(classification);
+
+    if (hasFullEval) {
       const message = coachMove(
         move,
         classification,
@@ -267,7 +276,6 @@ export default function AnalyzePage() {
       );
       setCoachMessage(message);
     } else {
-      // Generate immediate feedback without waiting for engine
       const gameBefore = new Chess();
       try {
         gameBefore.load(beforeFen);
