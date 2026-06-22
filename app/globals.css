@@ -210,6 +210,156 @@ a:hover {
   border-radius: 3px;
 }
 
+/* Image input / OCR */
+.image-input-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(74, 144, 226, 0.08);
+}
+
+.drop-zone-text {
+  color: var(--muted);
+}
+
+.drop-zone-text p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.drop-hint {
+  font-size: 0.8rem !important;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.drop-icon {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.image-preview {
+  max-width: 100%;
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 6px;
+}
+
+.image-clear {
+  margin-top: 0.5rem;
+}
+
+.ocr-progress {
+  position: relative;
+  height: 22px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.ocr-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.4;
+  transition: width 0.2s ease;
+}
+
+.ocr-progress-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  color: var(--muted);
+  z-index: 1;
+}
+
+.ocr-status {
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin: 0.5rem 0 0;
+}
+
+.ocr-raw {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.ocr-raw summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.ocr-raw pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem;
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Image input toggle */
+.input-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.input-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: -1px;
+}
+
+.input-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.input-tab:hover {
+  color: var(--text);
+}
+
 .placeholder {
   background: var(--panel);
   border: 1px dashed var(--border);
