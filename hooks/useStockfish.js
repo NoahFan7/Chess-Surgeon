@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 /**
  * Hook to run Stockfish analysis in the browser via a web worker.
+ * Loads stockfish.js directly as a Worker — it auto-initializes in worker context.
+ *
  * Returns { isReady, isAnalyzing, evalScore, evalType, bestMove, pv, depth, analyze, stop }.
  *
  * - onComplete: callback(fen, result) called when analysis finishes
@@ -27,68 +29,71 @@ export default function useStockfish({ onComplete } = {}) {
   }, [onComplete]);
 
   useEffect(() => {
-    const worker = new Worker("/stockfish/worker.js");
+    // Load stockfish.js directly as a Worker — it auto-bootstraps in worker context
+    const worker = new Worker("/stockfish/stockfish.js");
     workerRef.current = worker;
 
     worker.onmessage = (e) => {
-      const msg = e.data;
+      const line = typeof e.data === "string" ? e.data : "";
 
-      if (msg.type === "ready") {
+      if (line === "uciok") {
+        worker.postMessage("isready");
+      }
+
+      if (line === "readyok") {
         setIsReady(true);
       }
 
-      if (msg.type === "error") {
-        console.error("Stockfish error:", msg.message);
-        setIsAnalyzing(false);
+      if (line.startsWith("info")) {
+        const depthMatch = line.match(/depth (\d+)/);
+        const scoreCpMatch = line.match(/score cp (-?\d+)/);
+        const scoreMateMatch = line.match(/score mate (-?\d+)/);
+        const pvMatch = line.match(/pv (.+)$/);
+
+        const depth = depthMatch ? parseInt(depthMatch[1], 10) : 0;
+
+        let evalScore = null;
+        let evalType = null;
+        if (scoreMateMatch) {
+          evalScore = parseInt(scoreMateMatch[1], 10);
+          evalType = "mate";
+        } else if (scoreCpMatch) {
+          evalScore = parseInt(scoreCpMatch[1], 10);
+          evalType = "cp";
+        }
+
+        const pv = pvMatch ? pvMatch[1].split(/\s+/) : [];
+
+        setResult((prev) => {
+          if (depth < prev.depth && evalType) return prev;
+          return { ...prev, evalScore, evalType, pv, depth };
+        });
       }
 
-      if (msg.type === "line") {
-        const line = msg.line;
-
-        if (line.startsWith("bestmove")) {
-          setIsAnalyzing(false);
-          const parts = line.split(/\s+/);
-          const bestMove =
-            parts[1] && parts[1] !== "(none)" ? parts[1] : null;
-          setResult((prev) => {
-            const newResult = { ...prev, bestMove };
-            if (fenRef.current) {
-              onCompleteRef.current?.(fenRef.current, newResult);
-            }
-            return newResult;
-          });
-        } else if (line.startsWith("info")) {
-          const depthMatch = line.match(/depth (\d+)/);
-          const scoreCpMatch = line.match(/score cp (-?\d+)/);
-          const scoreMateMatch = line.match(/score mate (-?\d+)/);
-          const pvMatch = line.match(/pv (.+)$/);
-
-          const depth = depthMatch ? parseInt(depthMatch[1], 10) : 0;
-
-          let evalScore = null;
-          let evalType = null;
-          if (scoreMateMatch) {
-            evalScore = parseInt(scoreMateMatch[1], 10);
-            evalType = "mate";
-          } else if (scoreCpMatch) {
-            evalScore = parseInt(scoreCpMatch[1], 10);
-            evalType = "cp";
+      if (line.startsWith("bestmove")) {
+        setIsAnalyzing(false);
+        const parts = line.split(/\s+/);
+        const bestMove =
+          parts[1] && parts[1] !== "(none)" ? parts[1] : null;
+        setResult((prev) => {
+          const newResult = { ...prev, bestMove };
+          if (fenRef.current) {
+            onCompleteRef.current?.(fenRef.current, newResult);
           }
-
-          const pv = pvMatch ? pvMatch[1].split(/\s+/) : [];
-
-          setResult((prev) => {
-            if (depth < prev.depth && evalType) return prev;
-            return { ...prev, evalScore, evalType, pv, depth };
-          });
-        }
+          return newResult;
+        });
       }
     };
 
-    worker.postMessage({ type: "init" });
+    worker.onerror = (e) => {
+      console.error("Stockfish worker error:", e.message || e);
+    };
+
+    // Start the UCI handshake
+    worker.postMessage("uci");
 
     return () => {
-      worker.postMessage({ type: "command", command: "quit" });
+      worker.postMessage("quit");
       worker.terminate();
     };
   }, []);
@@ -107,21 +112,18 @@ export default function useStockfish({ onComplete } = {}) {
       });
 
       const w = workerRef.current;
-      w.postMessage({ type: "command", command: "stop" });
-      w.postMessage({ type: "command", command: "ucinewgame" });
-      w.postMessage({ type: "command", command: `position fen ${fen}` });
-      w.postMessage({
-        type: "command",
-        command: `setoption name MultiPV value ${multipv}`,
-      });
-      w.postMessage({ type: "command", command: `go depth ${depth}` });
+      w.postMessage("stop");
+      w.postMessage("ucinewgame");
+      w.postMessage(`position fen ${fen}`);
+      w.postMessage(`setoption name MultiPV value ${multipv}`);
+      w.postMessage(`go depth ${depth}`);
     },
     [isReady]
   );
 
   const stop = useCallback(() => {
     if (!workerRef.current) return;
-    workerRef.current.postMessage({ type: "command", command: "stop" });
+    workerRef.current.postMessage("stop");
     setIsAnalyzing(false);
   }, []);
 

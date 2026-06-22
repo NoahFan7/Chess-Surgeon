@@ -19,7 +19,7 @@ const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
 
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const MAX_DEPTH = 15;
+const MAX_DEPTH = 12;
 
 function detectFormat(text) {
   const trimmed = text.trim();
