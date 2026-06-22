@@ -5,12 +5,14 @@ import dynamic from "next/dynamic";
 import { Chess } from "chess.js";
 import MoveList from "../../components/MoveList";
 import AnalysisPanel from "../../components/AnalysisPanel";
+import CoachPanel from "../../components/CoachPanel";
 import useStockfish from "../../hooks/useStockfish";
 import {
   classifyMove,
   isMoveBest,
   uciToArrow,
 } from "../../lib/chessAnalysis";
+import { coachMove } from "../../lib/chessCoach";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
@@ -75,6 +77,8 @@ export default function AnalyzePage() {
 
   const [evalCache, setEvalCache] = useState({});
   const [classifications, setClassifications] = useState({});
+  const [coachMessage, setCoachMessage] = useState("");
+  const [coachClassification, setCoachClassification] = useState(null);
   const [showArrow, setShowArrow] = useState(true);
 
   const onComplete = useCallback((analyzedFen, result) => {
@@ -177,6 +181,49 @@ export default function AnalyzePage() {
     const arrow = uciToArrow(displayEval.bestMove);
     return arrow ? [arrow] : [];
   }, [showArrow, displayEval.bestMove]);
+
+  // Current game object for coach analysis
+  const currentGame = useMemo(() => {
+    const g = new Chess();
+    try {
+      g.load(fen);
+      return g;
+    } catch {
+      return null;
+    }
+  }, [fen]);
+
+  // Generate coach message when classifications or position changes
+  useEffect(() => {
+    const activeIndex = pgnMoves ? currentPly : moves.length - 1;
+    if (activeIndex < 0 || !displayedMoves[activeIndex]) {
+      setCoachClassification(null);
+      return;
+    }
+
+    const classification = classifications[activeIndex];
+    setCoachClassification(classification);
+
+    if (classification) {
+      const move = displayedMoves[activeIndex];
+      const beforeFen = positionFens[activeIndex];
+      const afterFen = positionFens[activeIndex + 1];
+      const before = evalCache[beforeFen];
+      const after = evalCache[afterFen];
+
+      if (before && after && currentGame) {
+        const message = coachMove(
+          move,
+          classification,
+          before,
+          after,
+          before.bestMove,
+          currentGame
+        );
+        setCoachMessage(message);
+      }
+    }
+  }, [classifications, currentPly, moves.length, positionFens, evalCache, displayedMoves, currentGame]);
 
   const updateStatus = useCallback((game) => {
     if (game.isCheckmate()) {
@@ -342,6 +389,17 @@ export default function AnalyzePage() {
         </div>
         {error && <p className="input-error">{error}</p>}
       </div>
+
+      <CoachPanel
+        message={coachMessage}
+        evalScore={displayEval.evalScore}
+        evalType={displayEval.evalType}
+        turn={turn}
+        game={currentGame}
+        bestMoveUci={displayEval.bestMove}
+        classification={coachClassification}
+        isAnalyzing={stockfish.isAnalyzing}
+      />
 
       <AnalysisPanel
         isReady={stockfish.isReady}

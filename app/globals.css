@@ -379,6 +379,136 @@ a:hover {
   color: var(--text);
 }
 
+/* Coach panel */
+.coach-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.coach-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.coach-avatar {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.coach-avatar.talking {
+  animation: bob 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes bob {
+  from { transform: translateY(0); }
+  to { transform: translateY(-3px); }
+}
+
+.coach-bubble {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  position: relative;
+  min-height: 40px;
+  flex: 1;
+}
+
+.coach-bubble::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 14px;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 8px solid var(--accent);
+}
+
+.coach-cursor {
+  animation: blink 0.7s step-end infinite;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.coach-assessment {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.coach-assessment-label {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.coach-assessment-text {
+  color: var(--text);
+}
+
+.coach-insights {
+  margin-top: 0.75rem;
+}
+
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.insight-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.83rem;
+}
+
+.insight-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.insight-best .insight-icon { background: #22b14c; color: #fff; }
+.insight-threat .insight-icon { background: #e23838; color: #fff; }
+.insight-capture .insight-icon { background: #e8852a; color: #fff; }
+.insight-check .insight-icon { background: #e6c020; color: #333; }
+.insight-phase .insight-icon { background: var(--accent); color: #fff; }
+
+.insight-item > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.insight-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.insight-detail {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .placeholder {
   background: var(--panel);
   border: 1px dashed var(--border);
