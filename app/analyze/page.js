@@ -5,8 +5,6 @@ import dynamic from "next/dynamic";
 import { Chess } from "chess.js";
 import MoveList from "../../components/MoveList";
 import AnalysisPanel from "../../components/AnalysisPanel";
-import ImageInput from "../../components/ImageInput";
-import BoardRecognizer from "../../components/BoardRecognizer";
 import useStockfish from "../../hooks/useStockfish";
 import {
   classifyMove,
@@ -74,7 +72,6 @@ export default function AnalyzePage() {
   const [pgnMoves, setPgnMoves] = useState(null);
   const [currentPly, setCurrentPly] = useState(-1);
   const [positionFens, setPositionFens] = useState([STARTING_FEN]);
-  const [inputMode, setInputMode] = useState("text");
 
   const [evalCache, setEvalCache] = useState({});
   const [classifications, setClassifications] = useState({});
@@ -327,107 +324,24 @@ export default function AnalyzePage() {
     <div>
       <h1>Analyze a game</h1>
 
-      <div className="input-tabs">
-        <button
-          className={`input-tab ${inputMode === "text" ? "active" : ""}`}
-          onClick={() => setInputMode("text")}
-        >
-          Paste Text
-        </button>
-        <button
-          className={`input-tab ${inputMode === "image" ? "active" : ""}`}
-          onClick={() => setInputMode("image")}
-        >
-          Screenshot OCR
-        </button>
-        <button
-          className={`input-tab ${inputMode === "board" ? "active" : ""}`}
-          onClick={() => setInputMode("board")}
-        >
-          Board Image AI
-        </button>
-      </div>
-
-      {inputMode === "text" ? (
-        <div className="input-section">
-          <textarea
-            className="pgn-input"
-            placeholder={"Paste a PGN, FEN, or game URL here…\n\nPGN: 1. e4 e5 2. Nf3 Nc6\nFEN: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            rows={4}
-          />
-          <div className="input-actions">
-            <button className="btn" onClick={handleLoad}>
-              Load
-            </button>
-            <button className="btn secondary" onClick={reset}>
-              Clear
-            </button>
-          </div>
-          {error && <p className="input-error">{error}</p>}
+      <div className="input-section">
+        <textarea
+          className="pgn-input"
+          placeholder={"Paste a PGN, FEN, or game URL here…\n\nPGN: 1. e4 e5 2. Nf3 Nc6\nFEN: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"}
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          rows={4}
+        />
+        <div className="input-actions">
+          <button className="btn" onClick={handleLoad}>
+            Load
+          </button>
+          <button className="btn secondary" onClick={reset}>
+            Clear
+          </button>
         </div>
-      ) : inputMode === "image" ? (
-        <ImageInput
-          onExtract={({ type, value }) => {
-            setError("");
-            setInputText(value);
-            if (type === "fen") {
-              const game = new Chess();
-              try {
-                game.load(value);
-                setFen(game.fen());
-                setMoves([]);
-                setPgnMoves(null);
-                setCurrentPly(-1);
-                setPositionFens([game.fen()]);
-                setEvalCache({});
-                setClassifications({});
-                updateStatus(game);
-              } catch {
-                setError("OCR found a FEN but it was invalid. Try a clearer screenshot.");
-              }
-            } else if (type === "pgn") {
-              const game = new Chess();
-              try {
-                game.loadPgn(value);
-                const sans = game.history();
-                const { fens, moves: verboseMoves } = buildHistory(sans);
-                setPgnMoves(verboseMoves);
-                setCurrentPly(sans.length - 1);
-                setPositionFens(fens);
-                setFen(fens[fens.length - 1]);
-                setMoves([]);
-                setEvalCache({});
-                setClassifications({});
-                updateStatus(game);
-              } catch {
-                setError("OCR found moves but couldn't parse them as PGN. Try a clearer screenshot.");
-              }
-            }
-          }}
-        />
-      ) : (
-        <BoardRecognizer
-          onFenExtract={(fenValue) => {
-            setError("");
-            const game = new Chess();
-            try {
-              game.load(fenValue);
-              setFen(game.fen());
-              setMoves([]);
-              setPgnMoves(null);
-              setCurrentPly(-1);
-              setPositionFens([game.fen()]);
-              setEvalCache({});
-              setClassifications({});
-              updateStatus(game);
-            } catch {
-              setError("AI detected an invalid position. Try a clearer screenshot.");
-            }
-          }}
-        />
-      )}
+        {error && <p className="input-error">{error}</p>}
+      </div>
 
       <AnalysisPanel
         isReady={stockfish.isReady}
