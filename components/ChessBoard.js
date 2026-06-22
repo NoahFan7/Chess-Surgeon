@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Chess, MOVE_TYPE } from "chess.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 
 const STARTING_FEN =
@@ -33,6 +33,22 @@ export default function ChessBoard({
     }
     return g;
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [computedWidth, setComputedWidth] = useState(560);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const update = () => {
+      if (containerRef.current) {
+        setComputedWidth(containerRef.current.offsetWidth);
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
   }, []);
 
   const [position, setPosition] = useState(game.fen());
@@ -120,7 +136,7 @@ export default function ChessBoard({
   }, [lastMove, highlightSquares, moveCount]);
 
   return (
-    <div className="cs-board-wrap">
+    <div className="cs-board-wrap" ref={containerRef}>
       <Chessboard
         id="ChessBoard"
         position={position}
@@ -129,7 +145,7 @@ export default function ChessBoard({
         arePiecesDraggable={interactive}
         customArrows={arrows}
         customSquareStyles={squareStyles}
-        boardWidth={boardWidth}
+        boardWidth={boardWidth ?? computedWidth}
         customDarkSquareStyle={{ backgroundColor: "#B58863" }}
         customLightSquareStyle={{ backgroundColor: "#F0D9B5" }}
         customBoardStyle={{
