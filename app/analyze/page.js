@@ -237,7 +237,7 @@ export default function AnalyzePage() {
     }
   }, []);
 
-  const handleLoad = useCallback(() => {
+  const handleLoad = useCallback(async () => {
     setError("");
     const text = inputText.trim();
     if (!text) {
@@ -288,9 +288,40 @@ export default function AnalyzePage() {
     }
 
     if (format === "gameid") {
-      setError(
-        "Loading games by ID/URL requires an API call. Paste the PGN directly for now."
-      );
+      setError("Fetching game from URL…");
+      try {
+        const apiUrl = `/api/game?url=${encodeURIComponent(text)}`;
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || "Failed to fetch game.");
+          return;
+        }
+
+        const pgnText = data.pgn;
+        const game = new Chess();
+        try {
+          game.loadPgn(pgnText);
+        } catch {
+          setError("Fetched game but couldn't parse the PGN.");
+          return;
+        }
+        const sans = game.history();
+        const { fens, moves: verboseMoves } = buildHistory(sans);
+        setPgnMoves(verboseMoves);
+        setCurrentPly(sans.length - 1);
+        setPositionFens(fens);
+        setFen(fens[fens.length - 1]);
+        setMoves([]);
+        setEvalCache({});
+        setClassifications({});
+        setInputText(pgnText);
+        setError("");
+        updateStatus(game);
+      } catch (e) {
+        setError("Network error fetching game: " + e.message);
+      }
       return;
     }
 
