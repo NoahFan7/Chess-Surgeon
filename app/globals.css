@@ -65,7 +65,7 @@ a:hover {
 .site-main {
   flex: 1;
   padding: 2rem 1.5rem;
-  max-width: 960px;
+  max-width: 1400px;
   width: 100%;
   margin: 0 auto;
 }
@@ -556,6 +556,7 @@ a:hover {
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
+  min-width: 320px;
 }
 
 .board-side {
