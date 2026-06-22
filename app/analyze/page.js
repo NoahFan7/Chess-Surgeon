@@ -91,6 +91,10 @@ export default function AnalyzePage() {
   const [coachClassification, setCoachClassification] = useState(null);
   const [showArrow, setShowArrow] = useState(true);
 
+  // Try-line mode: when user makes a move during PGN review, we branch
+  // but preserve the original game so they can return to it
+  const [savedGame, setSavedGame] = useState(null); // { pgnMoves, positionFens, currentPly }
+
   const onComplete = useCallback((analyzedFen, result) => {
     setEvalCache((prev) => ({
       ...prev,
@@ -423,10 +427,19 @@ export default function AnalyzePage() {
 
   const handleBoardMove = useCallback(
     ({ move, fen, isCheck, isCheckmate, isDraw, turn }) => {
-      // If in PGN mode, switch to free play from current position
+      // If in PGN mode, save the game state and enter try-line mode
       if (pgnMoves) {
         const keptMoves = pgnMoves.slice(0, currentPly + 1);
         const keptFens = positionFens.slice(0, currentPly + 2);
+
+        // Save the original game so we can return to it
+        setSavedGame({
+          pgnMoves: [...pgnMoves],
+          positionFens: [...positionFens],
+          currentPly,
+        });
+
+        // Start try-line from current position
         setMoves([
           ...keptMoves,
           { from: move.from, to: move.to, san: move.san, color: move.color },
@@ -454,6 +467,24 @@ export default function AnalyzePage() {
     [pgnMoves, currentPly, positionFens]
   );
 
+  // Return to the original game from try-line mode
+  const returnToGame = useCallback(() => {
+    if (!savedGame) return;
+    setPgnMoves(savedGame.pgnMoves);
+    setPositionFens(savedGame.positionFens);
+    setCurrentPly(savedGame.currentPly);
+    setFen(savedGame.positionFens[savedGame.currentPly + 1]);
+    setMoves([]);
+    setSavedGame(null);
+    const game = new Chess();
+    try {
+      game.load(savedGame.positionFens[savedGame.currentPly + 1]);
+      updateStatus(game);
+    } catch {
+      // ignore
+    }
+  }, [savedGame, updateStatus]);
+
   function reset() {
     setFen(STARTING_FEN);
     setMoves([]);
@@ -465,6 +496,7 @@ export default function AnalyzePage() {
     setError("");
     setEvalCache({});
     setClassifications({});
+    setSavedGame(null);
   }
 
   function flip() {
@@ -549,6 +581,15 @@ export default function AnalyzePage() {
                 Reset
               </button>
             </div>
+
+          {savedGame && (
+            <div className="try-line-banner">
+              <span className="try-line-label">Try line mode</span>
+              <button className="btn" onClick={returnToGame}>
+                ← Back to game
+              </button>
+            </div>
+          )}
 
           {pgnMoves && (
             <div className="nav-actions">

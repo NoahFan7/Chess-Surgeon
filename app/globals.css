@@ -512,6 +512,25 @@ a:hover {
   font-size: 0.8rem;
 }
 
+/* Try line banner */
+.try-line-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: rgba(74, 144, 226, 0.15);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.try-line-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .placeholder {
   background: var(--panel);
   border: 1px dashed var(--border);
