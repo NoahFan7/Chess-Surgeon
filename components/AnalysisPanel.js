@@ -2,6 +2,7 @@
 
 /**
  * Displays Stockfish analysis results: eval bar, best move, principal variation, depth.
+ * Now supports auto-analysis (no manual button needed) and cached evals.
  */
 function formatEval(evalScore, evalType, turn) {
   if (evalScore === null || evalType === null) return "—";
@@ -11,7 +12,6 @@ function formatEval(evalScore, evalType, turn) {
     return `M${n}`;
   }
 
-  // Convert centipawns to pawns, adjust for side to move
   let pawns = evalScore / 100;
   if (turn === "b") pawns = -pawns;
   return pawns >= 0 ? `+${pawns.toFixed(2)}` : pawns.toFixed(2);
@@ -24,7 +24,6 @@ function evalBarPercent(evalScore, evalType, turn) {
     return evalScore > 0 ? 100 : 0;
   }
 
-  // Map centipawns to 0-100 scale (clamp at +-800cp)
   let cp = evalScore;
   if (turn === "b") cp = -cp;
   const clamped = Math.max(-800, Math.min(800, cp));
@@ -41,7 +40,9 @@ export default function AnalysisPanel({
   depth,
   maxDepth,
   turn,
-  onAnalyze,
+  showArrow,
+  onToggleArrow,
+  accuracy,
 }) {
   const evalText = formatEval(evalScore, evalType, turn);
   const barPercent = evalBarPercent(evalScore, evalType, turn);
@@ -51,56 +52,70 @@ export default function AnalysisPanel({
     <div className="analysis-panel">
       <div className="analysis-header">
         <span className="analysis-title">Stockfish</span>
-        {!isReady && <span className="engine-status">Loading engine…</span>}
-        {isReady && !isAnalyzing && (
-          <button className="btn" onClick={onAnalyze} disabled={!isReady}>
-            Analyze
-          </button>
-        )}
-        {isAnalyzing && (
-          <button className="btn secondary" disabled>
-            Analyzing…
-          </button>
-        )}
+        <div className="analysis-controls">
+          <label className="arrow-toggle">
+            <input
+              type="checkbox"
+              checked={showArrow}
+              onChange={onToggleArrow}
+            />
+            <span>Show best move</span>
+          </label>
+        </div>
       </div>
 
-      <div className="eval-bar-container">
-        <div
-          className="eval-bar-white"
-          style={{ width: `${100 - barPercent}%` }}
-        />
-        <div
-          className="eval-bar-black"
-          style={{ width: `${barPercent}%` }}
-        />
-        <span className="eval-text">{evalText}</span>
-      </div>
-
-      {(isAnalyzing || depth > 0) && (
-        <div className="depth-bar-container">
-          <div
-            className="depth-bar-fill"
-            style={{ width: `${depthPercent}%` }}
-          />
-          <span className="depth-text">
-            Depth {depth}
-            {maxDepth ? `/${maxDepth}` : ""}
-          </span>
-        </div>
+      {!isReady && (
+        <p className="engine-status">Loading engine…</p>
       )}
 
-      {bestMove && (
-        <div className="best-move-row">
-          <span className="label">Best move:</span>
-          <span className="value">{bestMove}</span>
-        </div>
-      )}
+      {isReady && (
+        <>
+          <div className="eval-bar-container">
+            <div
+              className="eval-bar-white"
+              style={{ width: `${100 - barPercent}%` }}
+            />
+            <div
+              className="eval-bar-black"
+              style={{ width: `${barPercent}%` }}
+            />
+            <span className="eval-text">{evalText}</span>
+          </div>
 
-      {pv && pv.length > 0 && (
-        <div className="pv-row">
-          <span className="label">PV:</span>
-          <span className="pv-moves">{pv.slice(0, 10).join(" ")}</span>
-        </div>
+          {(isAnalyzing || depth > 0) && (
+            <div className="depth-bar-container">
+              <div
+                className="depth-bar-fill"
+                style={{ width: `${depthPercent}%` }}
+              />
+              <span className="depth-text">
+                {isAnalyzing ? "Analyzing" : "Depth"} {depth}
+                {maxDepth ? `/${maxDepth}` : ""}
+              </span>
+            </div>
+          )}
+
+          {accuracy !== null && accuracy !== undefined && (
+            <div className="accuracy-row">
+              <span className="label">Accuracy:</span>
+              <span className="accuracy-value">{accuracy.toFixed(1)}%</span>
+            </div>
+          )}
+
+          {bestMove && (
+            <div className="best-move-row">
+              <span className="label">Best move:</span>
+              <span className="value">{bestMove}</span>
+            </div>
+          )}
+
+          {pv && pv.length > 0 && (
+            <div className="pv-row">
+              <span className="label">PV:</span>
+              <span className="pv-moves">{pv.slice(0, 10).join(" ")}</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,21 +1,25 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Chess } from "chess.js";
 import MoveList from "../../components/MoveList";
 import AnalysisPanel from "../../components/AnalysisPanel";
 import useStockfish from "../../hooks/useStockfish";
+import {
+  classifyMove,
+  isMoveBest,
+  uciToArrow,
+} from "../../lib/chessAnalysis";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
   loading: () => <div className="placeholder">Loading board…</div>,
 });
 
-const MAX_DEPTH = 18;
-
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const MAX_DEPTH = 15;
 
 function detectFormat(text) {
   const trimmed = text.trim();
@@ -36,6 +40,27 @@ function detectFormat(text) {
   return "unknown";
 }
 
+function buildHistory(sans) {
+  const game = new Chess();
+  const fens = [game.fen()];
+  const moves = [];
+  for (const san of sans) {
+    try {
+      const move = game.move(san);
+      moves.push({
+        from: move.from,
+        to: move.to,
+        san: move.san,
+        color: move.color,
+      });
+      fens.push(game.fen());
+    } catch {
+      break;
+    }
+  }
+  return { fens, moves };
+}
+
 export default function AnalyzePage() {
   const [fen, setFen] = useState(STARTING_FEN);
   const [moves, setMoves] = useState([]);
@@ -46,13 +71,112 @@ export default function AnalyzePage() {
   const [error, setError] = useState("");
   const [pgnMoves, setPgnMoves] = useState(null);
   const [currentPly, setCurrentPly] = useState(-1);
+  const [positionFens, setPositionFens] = useState([STARTING_FEN]);
 
-  const stockfish = useStockfish();
+  const [evalCache, setEvalCache] = useState({});
+  const [classifications, setClassifications] = useState({});
+  const [showArrow, setShowArrow] = useState(true);
+
+  const onComplete = useCallback((analyzedFen, result) => {
+    setEvalCache((prev) => ({
+      ...prev,
+      [analyzedFen]: {
+        evalScore: result.evalScore,
+        evalType: result.evalType,
+        bestMove: result.bestMove,
+        depth: result.depth,
+        pv: result.pv,
+      },
+    }));
+  }, []);
+
+  const stockfish = useStockfish({ onComplete });
 
   const turn = useMemo(() => {
     const parts = fen.split(" ");
     return parts[1] || "w";
   }, [fen]);
+
+  // Auto-analyze when FEN changes (debounced)
+  const analyzeTimerRef = useRef(null);
+  useEffect(() => {
+    if (!stockfish.isReady) return;
+
+    const game = new Chess();
+    try {
+      game.load(fen);
+    } catch {
+      return;
+    }
+    if (game.isGameOver()) return;
+
+    if (analyzeTimerRef.current) clearTimeout(analyzeTimerRef.current);
+    analyzeTimerRef.current = setTimeout(() => {
+      stockfish.analyze(fen, { depth: MAX_DEPTH });
+    }, 300);
+
+    return () => {
+      if (analyzeTimerRef.current) clearTimeout(analyzeTimerRef.current);
+    };
+  }, [fen, stockfish.isReady]);
+
+  // Calculate classifications whenever evalCache or positionFens change
+  const displayedMoves = pgnMoves || moves;
+
+  useEffect(() => {
+    const newClassifications = {};
+    for (let i = 1; i < positionFens.length; i++) {
+      const beforeFen = positionFens[i - 1];
+      const afterFen = positionFens[i];
+      const before = evalCache[beforeFen];
+      const after = evalCache[afterFen];
+
+      if (!before || !after) continue;
+
+      const move = displayedMoves[i - 1];
+      if (!move) continue;
+
+      const best = isMoveBest(move.from, move.to, before.bestMove);
+      const label = classifyMove(before, after, best);
+      if (label) newClassifications[i - 1] = label;
+    }
+    setClassifications(newClassifications);
+  }, [evalCache, positionFens, displayedMoves]);
+
+  // Calculate overall accuracy
+  const accuracy = useMemo(() => {
+    const labels = Object.values(classifications);
+    if (!labels.length) return null;
+
+    const scores = {
+      best: 100,
+      great: 95,
+      good: 85,
+      inaccuracy: 65,
+      mistake: 45,
+      blunder: 10,
+    };
+
+    const total = labels.reduce((sum, l) => sum + (scores[l] || 50), 0);
+    return total / labels.length;
+  }, [classifications]);
+
+  // Current display eval: prefer cached, fall back to live
+  const currentCached = evalCache[fen];
+  const displayEval = currentCached || {
+    evalScore: stockfish.evalScore,
+    evalType: stockfish.evalType,
+    bestMove: stockfish.bestMove,
+    pv: stockfish.pv,
+    depth: stockfish.depth,
+  };
+
+  // Best move arrow
+  const arrows = useMemo(() => {
+    if (!showArrow || !displayEval.bestMove) return [];
+    const arrow = uciToArrow(displayEval.bestMove);
+    return arrow ? [arrow] : [];
+  }, [showArrow, displayEval.bestMove]);
 
   const updateStatus = useCallback((game) => {
     if (game.isCheckmate()) {
@@ -88,6 +212,9 @@ export default function AnalyzePage() {
       setMoves([]);
       setPgnMoves(null);
       setCurrentPly(-1);
+      setPositionFens([game.fen()]);
+      setEvalCache({});
+      setClassifications({});
       updateStatus(game);
       return;
     }
@@ -100,15 +227,15 @@ export default function AnalyzePage() {
         setError("Invalid PGN. Check the format and try again.");
         return;
       }
-      const history = game.history();
-      const moveList = history.map((san, i) => ({
-        san,
-        color: i % 2 === 0 ? "w" : "b",
-      }));
-      setPgnMoves(moveList);
-      setCurrentPly(history.length - 1);
-      setFen(game.fen());
+      const sans = game.history();
+      const { fens, moves: verboseMoves } = buildHistory(sans);
+      setPgnMoves(verboseMoves);
+      setCurrentPly(sans.length - 1);
+      setPositionFens(fens);
+      setFen(fens[fens.length - 1]);
       setMoves([]);
+      setEvalCache({});
+      setClassifications({});
       updateStatus(game);
       return;
     }
@@ -127,29 +254,40 @@ export default function AnalyzePage() {
     (ply) => {
       if (!pgnMoves) return;
       const clamped = Math.max(-1, Math.min(ply, pgnMoves.length - 1));
-      const game = new Chess();
-      const sans = pgnMoves.slice(0, clamped + 1).map((m) => m.san);
-      for (const san of sans) {
-        try {
-          game.move(san);
-        } catch {
-          break;
-        }
-      }
+      const fenIndex = clamped + 1;
       setCurrentPly(clamped);
-      setFen(game.fen());
-      updateStatus(game);
+      setFen(positionFens[fenIndex]);
+      const game = new Chess();
+      try {
+        game.load(positionFens[fenIndex]);
+        updateStatus(game);
+      } catch {
+        // ignore
+      }
     },
-    [pgnMoves, updateStatus]
+    [pgnMoves, positionFens, updateStatus]
   );
 
   const handleBoardMove = useCallback(
     ({ move, fen, isCheck, isCheckmate, isDraw, turn }) => {
+      // If in PGN mode, switch to free play from current position
+      if (pgnMoves) {
+        const keptMoves = pgnMoves.slice(0, currentPly + 1);
+        const keptFens = positionFens.slice(0, currentPly + 2);
+        setMoves([
+          ...keptMoves,
+          { from: move.from, to: move.to, san: move.san, color: move.color },
+        ]);
+        setPgnMoves(null);
+        setPositionFens([...keptFens, fen]);
+      } else {
+        setMoves((prev) => [
+          ...prev,
+          { from: move.from, to: move.to, san: move.san, color: move.color },
+        ]);
+        setPositionFens((prev) => [...prev, fen]);
+      }
       setFen(fen);
-      setMoves((prev) => [
-        ...prev,
-        { from: move.from, to: move.to, san: move.san, color: move.color },
-      ]);
       if (isCheckmate) {
         setStatus(`Checkmate — ${turn === "w" ? "Black" : "White"} wins`);
       } else if (isDraw) {
@@ -160,7 +298,7 @@ export default function AnalyzePage() {
         setStatus(`${turn === "w" ? "White" : "Black"} to move`);
       }
     },
-    []
+    [pgnMoves, currentPly, positionFens]
   );
 
   function reset() {
@@ -168,21 +306,19 @@ export default function AnalyzePage() {
     setMoves([]);
     setPgnMoves(null);
     setCurrentPly(-1);
+    setPositionFens([STARTING_FEN]);
     setStatus("White to move");
     setInputText("");
     setError("");
+    setEvalCache({});
+    setClassifications({});
   }
 
   function flip() {
     setOrientation((o) => (o === "white" ? "black" : "white"));
   }
 
-  const displayedMoves = pgnMoves || moves;
   const activeIndex = pgnMoves ? currentPly : -1;
-
-  const handleAnalyze = useCallback(() => {
-    stockfish.analyze(fen, { depth: MAX_DEPTH });
-  }, [stockfish, fen]);
 
   return (
     <div>
@@ -191,7 +327,7 @@ export default function AnalyzePage() {
       <div className="input-section">
         <textarea
           className="pgn-input"
-          placeholder="Paste a PGN, FEN, or game URL here…&#10;&#10;PGN: 1. e4 e5 2. Nf3 Nc6&#10;FEN: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+          placeholder={"Paste a PGN, FEN, or game URL here…\n\nPGN: 1. e4 e5 2. Nf3 Nc6\nFEN: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           rows={4}
@@ -210,14 +346,16 @@ export default function AnalyzePage() {
       <AnalysisPanel
         isReady={stockfish.isReady}
         isAnalyzing={stockfish.isAnalyzing}
-        evalScore={stockfish.evalScore}
-        evalType={stockfish.evalType}
-        bestMove={stockfish.bestMove}
-        pv={stockfish.pv}
-        depth={stockfish.depth}
+        evalScore={displayEval.evalScore}
+        evalType={displayEval.evalType}
+        bestMove={displayEval.bestMove}
+        pv={displayEval.pv}
+        depth={displayEval.depth}
         maxDepth={MAX_DEPTH}
         turn={turn}
-        onAnalyze={handleAnalyze}
+        showArrow={showArrow}
+        onToggleArrow={() => setShowArrow((s) => !s)}
+        accuracy={accuracy}
       />
 
       <div className="board-layout">
@@ -225,6 +363,7 @@ export default function AnalyzePage() {
           fen={fen}
           orientation={orientation}
           onMove={handleBoardMove}
+          arrows={arrows}
         />
         <aside className="board-side">
           <p
@@ -284,6 +423,7 @@ export default function AnalyzePage() {
             moves={displayedMoves}
             currentIndex={activeIndex}
             onMoveClick={pgnMoves ? (idx) => navigateTo(idx) : undefined}
+            classifications={classifications}
           />
         </aside>
       </div>
