@@ -385,7 +385,10 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1rem;
-  margin-bottom: 1.5rem;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .coach-header {
@@ -519,11 +522,28 @@ a:hover {
 }
 
 /* Chessboard layout */
+.board-layout-coach {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
 .board-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 1.5rem;
   align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .board-layout-coach {
+    grid-template-columns: 1fr;
+  }
+
+  .board-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {

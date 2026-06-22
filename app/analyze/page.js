@@ -421,17 +421,6 @@ export default function AnalyzePage() {
         {error && <p className="input-error">{error}</p>}
       </div>
 
-      <CoachPanel
-        message={coachMessage}
-        evalScore={displayEval.evalScore}
-        evalType={displayEval.evalType}
-        turn={turn}
-        game={currentGame}
-        bestMoveUci={displayEval.bestMove}
-        classification={coachClassification}
-        isAnalyzing={stockfish.isAnalyzing}
-      />
-
       <AnalysisPanel
         isReady={stockfish.isReady}
         isAnalyzing={stockfish.isAnalyzing}
@@ -447,32 +436,44 @@ export default function AnalyzePage() {
         accuracy={accuracy}
       />
 
-      <div className="board-layout">
-        <ChessBoard
-          fen={fen}
-          orientation={orientation}
-          onMove={handleBoardMove}
-          arrows={arrows}
+      <div className="board-layout-coach">
+        <CoachPanel
+          message={coachMessage}
+          evalScore={displayEval.evalScore}
+          evalType={displayEval.evalType}
+          turn={turn}
+          game={currentGame}
+          bestMoveUci={displayEval.bestMove}
+          classification={coachClassification}
+          isAnalyzing={stockfish.isAnalyzing}
         />
-        <aside className="board-side">
-          <p
-            className="board-status"
-            dangerouslySetInnerHTML={{
-              __html: status.replace(
-                /(White|Black) to move/,
-                (m, c) =>
-                  `<span class="turn-${c === "White" ? "w" : "b"}">${m}</span>`
-              ),
-            }}
+
+        <div className="board-layout">
+          <ChessBoard
+            fen={fen}
+            orientation={orientation}
+            onMove={handleBoardMove}
+            arrows={arrows}
           />
-          <div className="board-actions">
-            <button className="btn secondary" onClick={flip}>
-              Flip board
-            </button>
-            <button className="btn secondary" onClick={reset}>
-              Reset
-            </button>
-          </div>
+          <aside className="board-side">
+            <p
+              className="board-status"
+              dangerouslySetInnerHTML={{
+                __html: status.replace(
+                  /(White|Black) to move/,
+                  (m, c) =>
+                    `<span class="turn-${c === "White" ? "w" : "b"}">${m}</span>`
+                ),
+              }}
+            />
+            <div className="board-actions">
+              <button className="btn secondary" onClick={flip}>
+                Flip board
+              </button>
+              <button className="btn secondary" onClick={reset}>
+                Reset
+              </button>
+            </div>
 
           {pgnMoves && (
             <div className="nav-actions">
@@ -515,6 +516,7 @@ export default function AnalyzePage() {
             classifications={classifications}
           />
         </aside>
+        </div>
       </div>
     </div>
   );
