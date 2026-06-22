@@ -12,7 +12,7 @@ import {
   isMoveBest,
   uciToArrow,
 } from "../../lib/chessAnalysis";
-import { coachMove } from "../../lib/chessCoach";
+import { coachMove, coachMoveWithoutEval } from "../../lib/chessCoach";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
@@ -124,6 +124,49 @@ export default function AnalyzePage() {
     };
   }, [fen, stockfish.isReady]);
 
+  // Queue background analysis for all unanalyzed positions (PGN mode)
+  const analysisQueueRef = useRef(null);
+  useEffect(() => {
+    if (!stockfish.isReady || !pgnMoves || positionFens.length <= 1) return;
+
+    // Find positions that haven't been analyzed yet
+    const unanalyzed = positionFens.filter((f) => !evalCache[f]);
+    if (unanalyzed.length === 0) return;
+
+    // Don't interfere with the current position's analysis
+    // Queue analysis one at a time after the current analysis completes
+    if (analysisQueueRef.current) clearTimeout(analysisQueueRef.current);
+
+    let queueIdx = 0;
+    const processQueue = () => {
+      // Skip the current FEN (it's being analyzed by the other effect)
+      while (queueIdx < unanalyzed.length && unanalyzed[queueIdx] === fen) {
+        queueIdx++;
+      }
+      if (queueIdx >= unanalyzed.length) return;
+
+      const nextFen = unanalyzed[queueIdx];
+      queueIdx++;
+
+      // Check if it got analyzed while waiting
+      if (evalCache[nextFen]) {
+        processQueue();
+        return;
+      }
+
+      stockfish.analyze(nextFen, { depth: MAX_DEPTH });
+      // Wait for this analysis to complete before starting the next
+      analysisQueueRef.current = setTimeout(processQueue, 3000);
+    };
+
+    // Start queue after a delay to let current analysis finish
+    analysisQueueRef.current = setTimeout(processQueue, 3500);
+
+    return () => {
+      if (analysisQueueRef.current) clearTimeout(analysisQueueRef.current);
+    };
+  }, [stockfish.isReady, pgnMoves, positionFens, evalCache, fen]);
+
   // Calculate classifications whenever evalCache or positionFens change
   const displayedMoves = pgnMoves || moves;
 
@@ -193,37 +236,51 @@ export default function AnalyzePage() {
     }
   }, [fen]);
 
-  // Generate coach message when classifications or position changes
+  // Generate coach message when position changes or classifications update
   useEffect(() => {
     const activeIndex = pgnMoves ? currentPly : moves.length - 1;
+
     if (activeIndex < 0 || !displayedMoves[activeIndex]) {
       setCoachClassification(null);
+      setCoachMessage("Make a move and I'll coach you through it!");
       return;
     }
 
     const classification = classifications[activeIndex];
     setCoachClassification(classification);
 
-    if (classification) {
-      const move = displayedMoves[activeIndex];
-      const beforeFen = positionFens[activeIndex];
-      const afterFen = positionFens[activeIndex + 1];
-      const before = evalCache[beforeFen];
-      const after = evalCache[afterFen];
+    const move = displayedMoves[activeIndex];
+    const beforeFen = positionFens[activeIndex];
+    const afterFen = positionFens[activeIndex + 1];
+    const before = evalCache[beforeFen];
+    const after = evalCache[afterFen];
 
-      if (before && after && currentGame) {
-        const message = coachMove(
-          move,
-          classification,
-          before,
-          after,
-          before.bestMove,
-          currentGame
-        );
+    if (classification && before && after && currentGame) {
+      // Full engine-based feedback
+      const message = coachMove(
+        move,
+        classification,
+        before,
+        after,
+        before.bestMove,
+        currentGame
+      );
+      setCoachMessage(message);
+    } else {
+      // Generate immediate feedback without waiting for engine
+      const gameBefore = new Chess();
+      try {
+        gameBefore.load(beforeFen);
+      } catch {
+        // ignore
+      }
+      if (currentGame) {
+        const message = coachMoveWithoutEval(move, currentGame, gameBefore);
         setCoachMessage(message);
       }
     }
-  }, [classifications, currentPly, moves.length, positionFens, evalCache, displayedMoves, currentGame]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classifications, currentPly, moves.length, fen, evalCache]);
 
   const updateStatus = useCallback((game) => {
     if (game.isCheckmate()) {
