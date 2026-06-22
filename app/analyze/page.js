@@ -6,6 +6,7 @@ import { Chess } from "chess.js";
 import MoveList from "../../components/MoveList";
 import AnalysisPanel from "../../components/AnalysisPanel";
 import ImageInput from "../../components/ImageInput";
+import BoardRecognizer from "../../components/BoardRecognizer";
 import useStockfish from "../../hooks/useStockfish";
 import {
   classifyMove,
@@ -339,6 +340,12 @@ export default function AnalyzePage() {
         >
           Screenshot OCR
         </button>
+        <button
+          className={`input-tab ${inputMode === "board" ? "active" : ""}`}
+          onClick={() => setInputMode("board")}
+        >
+          Board Image AI
+        </button>
       </div>
 
       {inputMode === "text" ? (
@@ -360,7 +367,7 @@ export default function AnalyzePage() {
           </div>
           {error && <p className="input-error">{error}</p>}
         </div>
-      ) : (
+      ) : inputMode === "image" ? (
         <ImageInput
           onExtract={({ type, value }) => {
             setError("");
@@ -397,6 +404,26 @@ export default function AnalyzePage() {
               } catch {
                 setError("OCR found moves but couldn't parse them as PGN. Try a clearer screenshot.");
               }
+            }
+          }}
+        />
+      ) : (
+        <BoardRecognizer
+          onFenExtract={(fenValue) => {
+            setError("");
+            const game = new Chess();
+            try {
+              game.load(fenValue);
+              setFen(game.fen());
+              setMoves([]);
+              setPgnMoves(null);
+              setCurrentPly(-1);
+              setPositionFens([game.fen()]);
+              setEvalCache({});
+              setClassifications({});
+              updateStatus(game);
+            } catch {
+              setError("AI detected an invalid position. Try a clearer screenshot.");
             }
           }}
         />

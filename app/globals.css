@@ -331,6 +331,25 @@ a:hover {
   color: var(--muted);
 }
 
+/* FEN result display */
+.fen-result {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.fen-code {
+  display: block;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+  word-break: break-all;
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+
 /* Image input toggle */
 .input-tabs {
   display: flex;
