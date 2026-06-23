@@ -63,11 +63,11 @@ export async function POST(request) {
   }
 
   if (evalBefore && evalAfter) {
-    const evalToWords = (eval) => {
-      if (eval.evalType === "mate") {
-        return eval.evalScore > 0 ? "White can force checkmate" : "Black can force checkmate";
+    const evalToWords = (e) => {
+      if (e.evalType === "mate") {
+        return e.evalScore > 0 ? "White can force checkmate" : "Black can force checkmate";
       }
-      const pawns = eval.evalScore / 100;
+      const pawns = e.evalScore / 100;
       if (pawns > 5) return "White is dominating";
       if (pawns > 2) return "White is clearly ahead";
       if (pawns > 0.5) return "White is slightly better";
