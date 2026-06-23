@@ -14,11 +14,9 @@ export default function SimilarGamesPanel({ fen }) {
     setResults([]);
 
     try {
-      const res = await fetch("/api/similar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fen: fenToSearch, k: 5 }),
-      });
+      const res = await fetch(
+        `https://chess-surgeon-api-fb2ce0ab.onbld.com/similar?fen=${encodeURIComponent(fenToSearch)}&k=5`
+      );
       const data = await res.json();
 
       if (!res.ok) {
