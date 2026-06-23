@@ -65,6 +65,7 @@ export default function CoachPanel({
   bestMoveUci,
   classification,
   isAnalyzing,
+  isThinking,
 }) {
   const [displayedMessage, setDisplayedMessage] = useState("");
   const [typing, setTyping] = useState(false);
@@ -116,6 +117,7 @@ export default function CoachPanel({
         <div className="coach-bubble">
           {displayedMessage || (isAnalyzing ? "Let me analyze this position..." : "Make a move and I'll coach you through it!")}
           {typing && <span className="coach-cursor">|</span>}
+          {isThinking && !typing && <span className="coach-thinking">Thinking...</span>}
         </div>
       </div>
 

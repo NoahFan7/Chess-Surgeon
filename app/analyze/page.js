@@ -12,7 +12,7 @@ import {
   isMoveBest,
   uciToArrow,
 } from "../../lib/chessAnalysis";
-import { coachMove, coachMoveWithoutEval } from "../../lib/chessCoach";
+import { coachMove as coachMoveFallback, coachMoveWithoutEval as coachMoveWithoutEvalFallback } from "../../lib/chessCoach";
 import SimilarGamesPanel from "../../components/SimilarGamesPanel";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
@@ -256,6 +256,7 @@ export default function AnalyzePage() {
 
   // Generate coach message when position changes or classifications update
   const lastCoachKeyRef = useRef("");
+  const [coachLoading, setCoachLoading] = useState(false);
   useEffect(() => {
     const activeIndex = pgnMoves ? currentPly : moves.length - 1;
 
@@ -283,28 +284,55 @@ export default function AnalyzePage() {
 
     setCoachClassification(classification);
 
-    if (hasFullEval) {
-      const message = coachMove(
-        move,
-        classification,
-        before,
-        after,
-        before.bestMove,
-        currentGame
-      );
-      setCoachMessage(message);
-    } else {
-      const gameBefore = new Chess();
+    // Show immediate fallback while LLM is loading
+    const fallback = hasFullEval
+      ? coachMoveFallback(move, classification, before, after, before.bestMove, currentGame)
+      : (() => {
+          const gameBefore = new Chess();
+          try { gameBefore.load(beforeFen); } catch {}
+          return currentGame ? coachMoveWithoutEvalFallback(move, currentGame, gameBefore) : "";
+        })();
+    setCoachMessage(fallback);
+
+    // Call LLM coach for deep feedback
+    const fetchLLMCoach = async () => {
+      setCoachLoading(true);
       try {
-        gameBefore.load(beforeFen);
+        const recentMoves = displayedMoves.slice(Math.max(0, activeIndex - 5), activeIndex + 1)
+          .map(m => m.san);
+
+        const res = await fetch("/api/coach", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fen,
+            moveSan: move.san,
+            movePiece: move.piece,
+            moveCaptured: move.captured,
+            classification,
+            evalBefore: before,
+            evalAfter: after,
+            bestMoveUci: before?.bestMove,
+            opening: currentGame ? undefined : undefined,
+            moveNumber: activeIndex + 1,
+            turn: fen.split(" ")[1] === "b" ? "black" : "white",
+            pgnMoves: recentMoves,
+            isCheck: currentGame?.inCheck(),
+            isCheckmate: currentGame?.isCheckmate(),
+          }),
+        });
+        const data = await res.json();
+        if (data.message) {
+          setCoachMessage(data.message);
+        }
       } catch {
-        // ignore
+        // keep fallback message
+      } finally {
+        setCoachLoading(false);
       }
-      if (currentGame) {
-        const message = coachMoveWithoutEval(move, currentGame, gameBefore);
-        setCoachMessage(message);
-      }
-    }
+    };
+
+    fetchLLMCoach();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classifications, currentPly, moves.length, fen, evalCache]);
 
@@ -585,6 +613,7 @@ export default function AnalyzePage() {
           bestMoveUci={displayEval.bestMove}
           classification={coachClassification}
           isAnalyzing={stockfish.isAnalyzing}
+          isThinking={coachLoading}
         />
 
         <div className="board-layout">
