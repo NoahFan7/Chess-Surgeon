@@ -836,3 +836,121 @@ a:hover {
   min-width: 1rem;
   text-align: center;
 }
+
+.similar-games-panel {
+  margin-top: 1rem;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.similar-games-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-secondary, #f5f5f5);
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text, #333);
+  transition: background 0.15s;
+}
+
+.similar-games-toggle:hover {
+  background: var(--bg-tertiary, #eee);
+}
+
+.similar-games-icon {
+  font-size: 1rem;
+}
+
+.similar-games-count {
+  background: var(--accent, #4a90d9);
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  min-width: 1.2rem;
+  text-align: center;
+}
+
+.similar-games-arrow {
+  margin-left: auto;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.similar-games-content {
+  padding: 0.5rem 0.75rem;
+}
+
+.similar-games-loading {
+  color: var(--text-muted, #888);
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}
+
+.similar-games-error {
+  color: #d94a4a;
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}
+
+.similar-games-empty {
+  color: var(--text-muted, #888);
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}
+
+.similar-games-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.similar-game-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
+}
+
+.similar-game-item:last-child {
+  border-bottom: none;
+}
+
+.similar-game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.similar-game-players {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text, #333);
+}
+
+.similar-game-similarity {
+  font-size: 0.75rem;
+  color: var(--accent, #4a90d9);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.similar-game-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted, #888);
+  margin-top: 0.2rem;
+}
+
+.similar-game-fen {
+  margin-top: 0.2rem;
+}
+
+.similar-game-fen code {
+  font-size: 0.7rem;
+  color: var(--text-muted, #aaa);
+}

@@ -13,6 +13,7 @@ import {
   uciToArrow,
 } from "../../lib/chessAnalysis";
 import { coachMove, coachMoveWithoutEval } from "../../lib/chessCoach";
+import SimilarGamesPanel from "../../components/SimilarGamesPanel";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
@@ -634,6 +635,8 @@ export default function AnalyzePage() {
             onMoveClick={pgnMoves ? (idx) => navigateTo(idx) : undefined}
             classifications={classifications}
           />
+
+          <SimilarGamesPanel fen={fen} />
         </aside>
         </div>
       </div>
