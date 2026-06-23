@@ -12,10 +12,10 @@ export async function GET(request) {
     );
   }
 
-  const similarityUrl = `http://127.0.0.1:8000/similar?fen=${encodeURIComponent(fen)}&k=${k}`;
+  const similarityUrl = `https://chess-surgeon-api-fb2ce0ab.onbld.com/similar?fen=${encodeURIComponent(fen)}&k=${k}`;
 
   try {
-    const res = await fetch(similarityUrl, { signal: AbortSignal.timeout(30000) });
+    const res = await fetch(similarityUrl, { signal: AbortSignal.timeout(60000) });
     const data = await res.json();
 
     if (!res.ok) {
