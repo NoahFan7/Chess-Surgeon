@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-export default function SimilarGamesPanel({ fen }) {
+export default function SimilarGamesPanel({ fen, onLoadGame }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -90,10 +90,13 @@ export default function SimilarGamesPanel({ fen }) {
                     <span> · Move {r.move_number} ({r.turn})</span>
                     <span> · {resultText(r.game?.result)}</span>
                   </div>
-                  {r.game?.site && (
-                    <div className="similar-game-fen">
-                      <code>{r.fen.split(" ").slice(0, 2).join(" ")}...</code>
-                    </div>
+                  {r.game?.pgn && onLoadGame && (
+                    <button
+                      className="btn secondary similar-game-view"
+                      onClick={() => onLoadGame(r.game.pgn, r.move_number)}
+                    >
+                      View game →
+                    </button>
                   )}
                 </li>
               ))}

@@ -503,6 +503,34 @@ export default function AnalyzePage() {
     setSavedGame(null);
   }
 
+  const handleLoadSimilarGame = useCallback(
+    (pgnText, moveToPly) => {
+      const game = new Chess();
+      try {
+        game.loadPgn(pgnText);
+      } catch {
+        setError("Could not load the master game PGN.");
+        return;
+      }
+      const sans = game.history();
+      const { fens, moves: verboseMoves } = buildHistory(sans);
+      setPgnMoves(verboseMoves);
+      setMoves([]);
+      setEvalCache({});
+      setClassifications({});
+      setSavedGame(null);
+      setPositionFens(fens);
+
+      const clampedPly = Math.max(-1, Math.min(moveToPly, sans.length - 1));
+      setCurrentPly(clampedPly);
+      setFen(fens[clampedPly + 1]);
+      setInputText(pgnText);
+      setError("");
+      updateStatus(game);
+    },
+    [updateStatus]
+  );
+
   function flip() {
     setOrientation((o) => (o === "white" ? "black" : "white"));
   }
@@ -636,7 +664,7 @@ export default function AnalyzePage() {
             classifications={classifications}
           />
 
-          <SimilarGamesPanel fen={fen} />
+          <SimilarGamesPanel fen={fen} onLoadGame={handleLoadSimilarGame} />
         </aside>
         </div>
       </div>

@@ -954,3 +954,9 @@ a:hover {
   font-size: 0.7rem;
   color: var(--text-muted, #aaa);
 }
+
+.similar-game-view {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+}
