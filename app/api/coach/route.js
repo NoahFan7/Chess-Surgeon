@@ -123,7 +123,7 @@ export async function POST(request) {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 300,
+        max_tokens: 800,
         temperature: 0.7,
       }),
       signal: AbortSignal.timeout(30000),
@@ -143,8 +143,10 @@ export async function POST(request) {
     }
 
     const data = await res.json();
+    const choice = data.choices?.[0]?.message;
     const message =
-      data.choices?.[0]?.message?.content ||
+      choice?.content ||
+      choice?.reasoning ||
       generateFallbackMessage(
         classification,
         moveSan,
