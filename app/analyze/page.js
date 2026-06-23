@@ -27,8 +27,10 @@ function detectFormat(text) {
   const trimmed = text.trim();
   if (!trimmed) return "empty";
 
-  // Check for game URLs first (they contain "/" which would match FEN)
-  if (/lichess\.org|chess\.com/.test(trimmed)) {
+  // Check for game URLs — must start with http(s):// or www.
+  // (PGN headers contain "chess.com"/"lichess.org" in [Site "..."],
+  //  so checking for domain names anywhere would misidentify PGNs as URLs)
+  if (/^(https?:\/\/)?(www\.)?(lichess\.org|chess\.com)\//.test(trimmed)) {
     return "gameid";
   }
 
@@ -44,8 +46,9 @@ function detectFormat(text) {
     return "fen";
   }
 
-  // PGN: move numbers (1. ) or SAN moves at start
-  if (/\d+\.\s/.test(trimmed) || /^\s*[a-hNBRQKOx]/.test(trimmed)) {
+  // PGN: starts with header tags ([Event, [Site, etc.) or has move numbers (1. )
+  // or starts with a SAN move
+  if (/^\s*\[/.test(trimmed) || /\d+\.\s/.test(trimmed) || /^\s*[a-hNBRQKOx]/.test(trimmed)) {
     return "pgn";
   }
 

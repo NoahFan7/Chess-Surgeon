@@ -16,9 +16,25 @@ function extractLichessId(url) {
 }
 
 function extractChesscomInfo(url) {
-  // https://www.chess.com/game/live/12345 or /game/analysis/12345 or /game/daily/12345
-  const match = url.match(/chess\.com\/game\/(?:live|analysis|daily|tournament)\/(\d+)/);
-  return match ? { gameId: match[1], url } : null;
+  // Extracts game type (live/daily) and game ID from Chess.com URLs
+  // Supports multiple URL formats:
+  //   https://www.chess.com/game/live/12345          (current)
+  //   https://www.chess.com/game/daily/12345
+  //   https://www.chess.com/game/analysis/12345
+  //   https://www.chess.com/game/tournament/12345
+  //   https://www.chess.com/live/game/12345           (older)
+  //   https://www.chess.com/daily/game/12345          (older)
+  let match = url.match(/chess\.com\/game\/(live|analysis|daily|tournament)\/(\d+)/);
+  if (match) return { gameType: match[1], gameId: match[2], url };
+
+  match = url.match(/chess\.com\/(live|daily)\/game\/(\d+)/);
+  if (match) return { gameType: match[1], gameId: match[2], url };
+
+  // Analysis games are stored under "live" type in the callback API
+  match = url.match(/chess\.com\/analysis\/game\/(\d+)/);
+  if (match) return { gameType: "live", gameId: match[1], url };
+
+  return null;
 }
 
 async function fetchLichessGame(gameId) {
@@ -50,78 +66,76 @@ async function fetchLichessGame(gameId) {
 }
 
 async function fetchChesscomGame(info) {
-  const { url } = info;
+  const { gameType, gameId, url } = info;
 
-  // Chess.com doesn't have a public "get game by ID" API.
-  // Fetch the game page and extract the embedded PGN.
-  const res = await fetch(url, {
+  // Chess.com has no public "get game PGN by ID" endpoint.
+  // Two-step process:
+  //   1. Call the callback endpoint to get player username + game date
+  //   2. Fetch the player's monthly archive from the PubAPI and find the game by URL
+
+  // Step 1: Get game metadata (player usernames, date) from the callback endpoint
+  const callbackUrl = `https://www.chess.com/callback/${gameType}/game/${gameId}`;
+  const callbackRes = await fetch(callbackUrl, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Accept: "text/html",
+      "User-Agent": "Chess-Surgeon/1.0",
+      Accept: "application/json",
     },
-    redirect: "follow",
   });
 
-  if (!res.ok) {
-    throw new Error(`Chess.com returned ${res.status}`);
+  if (!callbackRes.ok) {
+    throw new Error(`Chess.com callback returned ${callbackRes.status}`);
   }
 
-  const html = await res.text();
+  const callbackData = await callbackRes.json();
+  const gameData = callbackData.game || callbackData;
 
-  // Chess.com embeds PGN in various ways:
+  // Extract the white player's username and game date
+  const headers = gameData.pgnHeaders || gameData.pgnHeader || {};
+  const whiteUsername = headers.White;
+  const dateStr = headers.Date; // "YYYY.MM.DD"
 
-  // 1. Try JSON-embedded PGN (in script tags)
-  const pgnJsonMatch = html.match(
-    /"pgn"\s*:\s*"((?:[^"\\]|\\.)*)"/
-  );
-  if (pgnJsonMatch) {
-    const pgn = JSON.parse(`"${pgnJsonMatch[1]}"`);
-    if (pgn && pgn.length > 50) return pgn;
+  if (!whiteUsername || !dateStr) {
+    throw new Error(
+      "Could not determine game players from Chess.com. Try pasting the PGN directly."
+    );
   }
 
-  // 2. Try to find PGN in a data attribute
-  const dataPgnMatch = html.match(/data-pgn="([^"]+)"/);
-  if (dataPgnMatch) {
-    const pgn = dataPgnMatch[1]
-      .replace(/&quot;/g, '"')
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">");
-    if (pgn.length > 50) return pgn;
+  // Parse the date
+  const [year, month] = dateStr.split(".");
+  if (!year || !month) {
+    throw new Error("Could not determine game date from Chess.com.");
   }
 
-  // 3. Try to find PGN directly in the page (starts with [Event)
-  const pgnBlockMatch = html.match(
-    /\[Event\s+"[^"]*"[\s\S]*?(?:1-0|0-1|1\/2-1\/2)\]/
-  );
-  if (pgnBlockMatch) {
-    return pgnBlockMatch[0].trim();
+  // Step 2: Fetch the player's monthly games archive from the PubAPI
+  const pubApiUrl = `https://api.chess.com/pub/player/${whiteUsername.toLowerCase()}/games/${year}/${month}`;
+  const archiveRes = await fetch(pubApiUrl, {
+    headers: {
+      "User-Agent": "Chess-Surgeon/1.0",
+      Accept: "application/json",
+    },
+  });
+
+  if (!archiveRes.ok) {
+    throw new Error(
+      `Chess.com archive API returned ${archiveRes.status}. Try pasting the PGN directly.`
+    );
   }
 
-  // 4. Try chess.com's internal API for game data
-  const gameId = info.gameId;
-  const apiUrls = [
-    `https://api.chess.com/pub/game/${gameId}`,
-    `https://api.chess.com/pub/games/${gameId}`,
-  ];
+  const archiveData = await archiveRes.json();
+  const games = archiveData.games || [];
 
-  for (const apiUrl of apiUrls) {
-    try {
-      const apiRes = await fetch(apiUrl, {
-        headers: { Accept: "application/json" },
-      });
-      if (apiRes.ok) {
-        const data = await apiRes.json();
-        if (data.pgn && data.pgn.length > 50) return data.pgn;
-      }
-    } catch {
-      // continue to next method
-    }
+  // Find the game by matching the game ID in the URL
+  const matchingGame = games.find((g) => {
+    const gameUrlParts = (g.url || "").split("/");
+    return gameUrlParts[gameUrlParts.length - 1] === String(gameId);
+  });
+
+  if (matchingGame && matchingGame.pgn && matchingGame.pgn.length > 20) {
+    return matchingGame.pgn;
   }
 
   throw new Error(
-    "Could not extract PGN from Chess.com. Try copying the PGN directly from Chess.com's analysis page (Share → Download PGN)."
+    "Could not find the game in the player's archive. Try copying the PGN directly from Chess.com (Share → Download PGN)."
   );
 }
 
