@@ -236,12 +236,19 @@ export default function AnalyzePage() {
     depth: stockfish.depth,
   };
 
+  // For the arrow: when reviewing a PGN move, show the best move from
+  // BEFORE the selected move was played (what the player should have done)
+  const arrowIndex = pgnMoves ? currentPly : -1;
+  const beforeFen = arrowIndex >= 0 ? positionFens[arrowIndex] : fen;
+  const beforeEval = arrowIndex >= 0 ? evalCache[beforeFen] : null;
+  const arrowBestMove = (beforeEval || displayEval).bestMove;
+
   // Best move arrow
   const arrows = useMemo(() => {
-    if (!showArrow || !displayEval.bestMove) return [];
-    const arrow = uciToArrow(displayEval.bestMove);
+    if (!showArrow || !arrowBestMove) return [];
+    const arrow = uciToArrow(arrowBestMove);
     return arrow ? [arrow] : [];
-  }, [showArrow, displayEval.bestMove]);
+  }, [showArrow, arrowBestMove]);
 
   // Current game object for coach analysis
   const currentGame = useMemo(() => {

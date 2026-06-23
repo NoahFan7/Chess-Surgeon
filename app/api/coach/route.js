@@ -39,7 +39,7 @@ export async function POST(request) {
     });
   }
 
-  const systemPrompt = `You are a friendly, knowledgeable chess coach. You explain things clearly for a beginner-to-intermediate player. You are encouraging but honest. Keep your responses to 2-4 sentences. Be specific — explain WHY a move is good or bad, what the opponent is threatening, and what the player should look for next. If the position is in an opening, mention the strategic goals of that opening.`;
+  const systemPrompt = `You are a friendly, encouraging chess coach for beginners. Keep your responses to 2-3 sentences in plain English. Never use numbers, evaluations, or technical notation like "+0.75" or "pawn advantage." Instead of numbers, describe who's doing better in plain words like "you're in a good spot" or "you're falling behind here." Explain WHY a move is good or bad in simple terms a beginner can understand. If it's an opening, briefly mention what the opening is trying to achieve. Be encouraging but honest.`;
 
   const userParts = [];
 
@@ -63,20 +63,21 @@ export async function POST(request) {
   }
 
   if (evalBefore && evalAfter) {
-    const beforeStr =
-      evalBefore.evalType === "mate"
-        ? `mate in ${evalBefore.evalScore}`
-        : `${(evalBefore.evalScore / 100).toFixed(2)} pawns`;
-    const afterStr =
-      evalAfter.evalType === "mate"
-        ? `mate in ${evalAfter.evalScore}`
-        : `${(evalAfter.evalScore / 100).toFixed(2)} pawns`;
-    userParts.push(
-      `Engine eval before move: ${beforeStr} (from White's perspective)`
-    );
-    userParts.push(
-      `Engine eval after move: ${afterStr} (from White's perspective)`
-    );
+    const evalToWords = (eval) => {
+      if (eval.evalType === "mate") {
+        return eval.evalScore > 0 ? "White can force checkmate" : "Black can force checkmate";
+      }
+      const pawns = eval.evalScore / 100;
+      if (pawns > 5) return "White is dominating";
+      if (pawns > 2) return "White is clearly ahead";
+      if (pawns > 0.5) return "White is slightly better";
+      if (pawns > -0.5) return "the position is roughly equal";
+      if (pawns > -2) return "Black is slightly better";
+      if (pawns > -5) return "Black is clearly ahead";
+      return "Black is dominating";
+    };
+    userParts.push(`Position before the move: ${evalToWords(evalBefore)}`);
+    userParts.push(`Position after the move: ${evalToWords(evalAfter)}`);
   }
 
   if (bestMoveUci) {
@@ -98,14 +99,14 @@ export async function POST(request) {
   }
 
   if (pgnMoves && pgnMoves.length > 0) {
-    const recent = pgnMoves.slice(-12).join(" ");
+    const recent = pgnMoves.slice(-6).join(" ");
     userParts.push(`Recent moves: ${recent}`);
   }
 
   userParts.push(`Current FEN: ${fen}`);
 
   userParts.push(
-    `\nCoach the player on this move. Be specific about what happened and what to look for.`
+    `\nCoach the player on this move in 2-3 simple sentences. Explain what happened and what they should think about next. Do NOT use numbers, evaluation scores, or technical chess terms. Speak like you're talking to a friend who just learned chess.`
   );
 
   const userPrompt = userParts.join("\n");
