@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const fen = searchParams.get("fen");
-  const k = searchParams.get("k") || "10";
+export async function POST(request) {
+  const body = await request.json().catch(() => ({}));
+  const fen = body.fen;
+  const k = body.k || 5;
 
   if (!fen) {
     return NextResponse.json(
-      { error: "Missing 'fen' parameter" },
+      { error: "Missing 'fen' in request body" },
       { status: 400 }
     );
   }
@@ -34,7 +34,7 @@ export async function GET(request) {
       );
     }
     return NextResponse.json(
-      { error: "Could not connect to similarity service. Is it running on port 8000?" },
+      { error: "Could not connect to similarity service." },
       { status: 502 }
     );
   }
