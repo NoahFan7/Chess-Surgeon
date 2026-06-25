@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { Chess } from "chess.js";
 import { getLLMModel } from "../../../lib/llmModels";
 
-const INFER_URL = process.env.INFER_TO_GO_URL || process.env.INFER_TO_GO_API_URL;
-const INFER_KEY = process.env.INFER_TO_GO_API_KEY || process.env.INFER_TO_GO_KEY;
+const AIAND_URL = process.env.AIAND_API_URL || "https://api.aiand.com/v1";
+const AIAND_KEY = process.env.AIAND_API_KEY;
 
 /**
  * Parse a SAN move from an LLM's text response.
@@ -55,9 +55,9 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unknown model" }, { status: 400 });
   }
 
-  if (!INFER_URL || !INFER_KEY) {
+  if (!AIAND_KEY) {
     return NextResponse.json({
-      error: "LLM API not configured. Set INFER_TO_GO_URL and INFER_TO_GO_API_KEY.",
+      error: "AIAND_API_KEY is not configured. Set it in your environment variables.",
     });
   }
 
@@ -96,11 +96,11 @@ Respond with ONLY your move in SAN notation. Just the move, nothing else. For ex
   try {
     // Call the LLM up to 3 times to get a valid move
     for (let attempt = 0; attempt < 3; attempt++) {
-      const res = await fetch(`${INFER_URL}/v1/chat/completions`, {
+      const res = await fetch(`${AIAND_URL}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${INFER_KEY}`,
+          Authorization: `Bearer ${AIAND_KEY}`,
         },
         body: JSON.stringify({
           model: model.model,
