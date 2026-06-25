@@ -9,6 +9,7 @@ import useStockfishPlayer from "../../hooks/useStockfishPlayer";
 import { ELO_PRESETS, DEFAULT_ELO, getPresetByElo } from "../../lib/eloLevels";
 import { classifyMove, isMoveBest, uciToArrow, uciToSan } from "../../lib/chessAnalysis";
 import { coachMoveWithoutEval, detectBlunder, PIECE_NAMES } from "../../lib/chessCoach";
+import { LLM_MODELS, DEFAULT_LLM_MODEL, getLLMModel } from "../../lib/llmModels";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
@@ -37,6 +38,10 @@ export default function PlayPage() {
   const [playerColor, setPlayerColor] = useState("white");
   const [coachEnabled, setCoachEnabled] = useState(true);
   const [showHint, setShowHint] = useState(false);
+  const [botType, setBotType] = useState("stockfish"); // "stockfish" | "llm"
+  const [llmModelId, setLlmModelId] = useState(DEFAULT_LLM_MODEL);
+  const [llmThinking, setLlmThinking] = useState(false);
+  const [llmError, setLlmError] = useState("");
 
   // Coach state
   const [coachMessage, setCoachMessage] = useState(
@@ -138,10 +143,106 @@ export default function PlayPage() {
   const botThinkingForRef = useRef(null);
 
   useEffect(() => {
-    if (!stockfish.isReady || !isBotTurn) return;
+    // Only fire when it's the bot's turn
+    if (!isBotTurn) return;
     if (botThinkingForRef.current === fen) return;
     botThinkingForRef.current = fen;
     const targetFen = fen;
+
+    // For LLM bots, we don't need Stockfish to be ready
+    if (botType === "llm") {
+      (async () => {
+        setLlmThinking(true);
+        setLlmError("");
+
+        const moveHistory = moves.map((m) => m.san);
+
+        try {
+          const apiRes = await fetch("/api/play-move", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fen: targetFen,
+              modelId: llmModelId,
+              moveHistory,
+              botColor: botColorCode,
+            }),
+          });
+
+          const data = await apiRes.json();
+
+          if (botThinkingForRef.current !== targetFen) return;
+          if (gameOverRef.current) return;
+
+          if (!data.move) {
+            setLlmError(data.error || "LLM failed to produce a move");
+            botThinkingForRef.current = null;
+            setLlmThinking(false);
+            setBotRetry((r) => r + 1);
+            return;
+          }
+
+          const game = new Chess();
+          try {
+            game.load(targetFen);
+          } catch {
+            botThinkingForRef.current = null;
+            setLlmThinking(false);
+            return;
+          }
+
+          let move;
+          try {
+            move = game.move(data.move);
+          } catch {
+            move = null;
+          }
+
+          if (!move) {
+            botThinkingForRef.current = null;
+            setLlmThinking(false);
+            setBotRetry((r) => r + 1);
+            return;
+          }
+
+          const newFen = game.fen();
+
+          setMoves((prev) => [
+            ...prev,
+            {
+              from: move.from,
+              to: move.to,
+              san: move.san,
+              color: move.color,
+              piece: move.piece,
+              captured: move.captured,
+            },
+          ]);
+          setPositionFens((prev) => [...prev, newFen]);
+          setFen(newFen);
+          setLastMove({ from: move.from, to: move.to });
+          botThinkingForRef.current = null;
+          setLlmThinking(false);
+
+          if (data.fallback) {
+            setLlmError(`${getLLMModel(llmModelId)?.name} returned an illegal move — played a random legal move instead.`);
+            setTimeout(() => setLlmError(""), 5000);
+          }
+
+          updateStatus(game);
+        } catch (e) {
+          if (botThinkingForRef.current !== targetFen) return;
+          setLlmError("Failed to reach LLM: " + e.message);
+          botThinkingForRef.current = null;
+          setLlmThinking(false);
+          setBotRetry((r) => r + 1);
+        }
+      })();
+      return;
+    }
+
+    // Stockfish bot
+    if (!stockfish.isReady) return;
 
     (async () => {
       const p = presetRef.current;
@@ -151,7 +252,6 @@ export default function PlayPage() {
         movetime: p.movetime,
       });
 
-      // Skip if superseded (game reset, undo, or resigned)
       if (botThinkingForRef.current !== targetFen) return;
       if (gameOverRef.current) return;
 
@@ -204,7 +304,6 @@ export default function PlayPage() {
       setLastMove({ from: move.from, to: move.to });
       botThinkingForRef.current = null;
 
-      // Store eval from bot's search (eval of the position the bot moved from)
       if (res.evalScore !== null) {
         setEvalCache((prev) => ({
           ...prev,
@@ -226,6 +325,9 @@ export default function PlayPage() {
     fen,
     isBotTurn,
     botRetry,
+    botType,
+    llmModelId,
+    botColorCode,
     updateStatus,
   ]);
 
@@ -661,6 +763,27 @@ export default function PlayPage() {
       {/* Settings bar */}
       <div className="play-settings">
         <div className="setting-group">
+          <span className="setting-label">Opponent</span>
+          <div className="bot-type-buttons">
+            <button
+              className={`bot-type-btn ${botType === "stockfish" ? "active" : ""}`}
+              onClick={() => setBotType("stockfish")}
+              disabled={gameStarted && !gameOver}
+            >
+              Stockfish
+            </button>
+            <button
+              className={`bot-type-btn ${botType === "llm" ? "active" : ""}`}
+              onClick={() => setBotType("llm")}
+              disabled={gameStarted && !gameOver}
+            >
+              LLM
+            </button>
+          </div>
+        </div>
+
+        {botType === "stockfish" && (
+        <div className="setting-group">
           <span className="setting-label">Difficulty</span>
           <div className="elo-buttons">
             {ELO_PRESETS.map((p) => (
@@ -679,6 +802,28 @@ export default function PlayPage() {
             {preset.label} — {preset.description}
           </span>
         </div>
+        )}
+
+        {botType === "llm" && (
+        <div className="setting-group">
+          <span className="setting-label">Model</span>
+          <select
+            className="llm-select"
+            value={llmModelId}
+            onChange={(e) => setLlmModelId(e.target.value)}
+            disabled={gameStarted && !gameOver}
+          >
+            {LLM_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.provider})
+              </option>
+            ))}
+          </select>
+          <span className="elo-label">
+            {getLLMModel(llmModelId)?.description}
+          </span>
+        </div>
+        )}
 
         <div className="setting-group">
           <span className="setting-label">Play as</span>
@@ -745,9 +890,14 @@ export default function PlayPage() {
         <div className="adaptive-note">{adaptiveNote}</div>
       )}
 
-      {/* Engine loading */}
-      {!stockfish.isReady && (
+      {/* Engine loading (only needed for Stockfish) */}
+      {botType === "stockfish" && !stockfish.isReady && (
         <div className="placeholder">Loading Stockfish engine…</div>
+      )}
+
+      {/* LLM error */}
+      {llmError && (
+        <div className="llm-error-banner">{llmError}</div>
       )}
 
       {/* Game over banner */}
@@ -793,12 +943,14 @@ export default function PlayPage() {
                 lastMove={lastMove}
                 onMove={handleBoardMove}
               />
-              {stockfish.isThinking && isBotTurn && (
+              {(stockfish.isThinking || llmThinking) && isBotTurn && (
                 <div className="bot-thinking">
                   <span className="bot-thinking-dot" />
                   <span className="bot-thinking-dot" />
                   <span className="bot-thinking-dot" />
-                  Bot is thinking…
+                  {botType === "llm"
+                    ? `${getLLMModel(llmModelId)?.name || "LLM"} is thinking…`
+                    : "Bot is thinking…"}
                 </div>
               )}
             </div>
@@ -816,8 +968,12 @@ export default function PlayPage() {
               {gameStarted && (
                 <div className="play-info">
                   <div className="play-info-row">
-                    <span className="label">Bot ELO</span>
-                    <span className="value">{effectiveElo}</span>
+                    <span className="label">{botType === "llm" ? "Model" : "Bot ELO"}</span>
+                    <span className="value">
+                      {botType === "llm"
+                        ? getLLMModel(llmModelId)?.name || llmModelId
+                        : effectiveElo}
+                    </span>
                   </div>
                   {accuracy !== null && (
                     <div className="play-info-row">
@@ -857,12 +1013,14 @@ export default function PlayPage() {
               lastMove={lastMove}
               onMove={handleBoardMove}
             />
-            {stockfish.isThinking && isBotTurn && (
+            {(stockfish.isThinking || llmThinking) && isBotTurn && (
               <div className="bot-thinking">
                 <span className="bot-thinking-dot" />
                 <span className="bot-thinking-dot" />
                 <span className="bot-thinking-dot" />
-                Bot is thinking…
+                {botType === "llm"
+                  ? `${getLLMModel(llmModelId)?.name || "LLM"} is thinking…`
+                  : "Bot is thinking…"}
               </div>
             )}
           </div>
@@ -880,8 +1038,12 @@ export default function PlayPage() {
             {gameStarted && (
               <div className="play-info">
                 <div className="play-info-row">
-                  <span className="label">Bot ELO</span>
-                  <span className="value">{effectiveElo}</span>
+                  <span className="label">{botType === "llm" ? "Model" : "Bot ELO"}</span>
+                  <span className="value">
+                    {botType === "llm"
+                      ? getLLMModel(llmModelId)?.name || llmModelId
+                      : effectiveElo}
+                  </span>
                 </div>
                 {accuracy !== null && (
                   <div className="play-info-row">

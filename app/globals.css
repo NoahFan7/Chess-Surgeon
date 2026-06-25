@@ -1106,6 +1106,72 @@ a:hover {
   opacity: 0.85;
 }
 
+/* Bot type selector */
+.bot-type-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.bot-type-btn {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.bot-type-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.bot-type-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.bot-type-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* LLM model selector */
+.llm-select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+}
+
+.llm-select:focus {
+  border-color: var(--accent);
+}
+
+.llm-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.llm-error-banner {
+  background: rgba(192, 57, 43, 0.15);
+  border: 1px solid #c0392b;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #e85d5d;
+}
+
 .adaptive-note {
   background: rgba(74, 144, 226, 0.15);
   border: 1px solid var(--accent);
