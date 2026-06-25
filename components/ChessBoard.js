@@ -19,6 +19,7 @@ export default function ChessBoard({
   interactive = true,
   arrows = [],
   highlightSquares = [],
+  lastMove: lastMoveProp,
   onMove,
   boardWidth,
 }) {
@@ -55,13 +56,13 @@ export default function ChessBoard({
   const [lastMove, setLastMove] = useState(null);
   const [moveCount, setMoveCount] = useState(0);
 
-  // Sync external FEN changes (e.g. PGN load) into the local game.
+  // Sync external FEN changes (e.g. bot move, PGN load) into the local game.
   useEffect(() => {
     if (fen && fen !== position) {
       try {
         game.load(fen);
         setPosition(game.fen());
-        setLastMove(null);
+        setLastMove(lastMoveProp || null);
         setMoveCount((c) => c + 1);
       } catch {
         // ignore invalid FEN
