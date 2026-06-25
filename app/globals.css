@@ -1223,3 +1223,81 @@ a:hover {
     gap: 1rem;
   }
 }
+
+/* ===== Game export panel ===== */
+
+.game-export-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.game-export-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+}
+
+.export-section {
+  margin-bottom: 1rem;
+}
+
+.export-section:last-of-type {
+  margin-bottom: 0.5rem;
+}
+
+.export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.export-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.export-copy-btn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+}
+
+.export-code {
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.export-pgn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.export-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0.75rem 0 0;
+}

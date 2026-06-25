@@ -8,7 +8,7 @@ import CoachPanel from "../../components/CoachPanel";
 import useStockfishPlayer from "../../hooks/useStockfishPlayer";
 import { ELO_PRESETS, DEFAULT_ELO, getPresetByElo } from "../../lib/eloLevels";
 import { classifyMove, isMoveBest, uciToArrow } from "../../lib/chessAnalysis";
-import { coachMoveWithoutEval, detectBlunder } from "../../lib/chessCoach";
+import { coachMoveWithoutEval, detectBlunder, PIECE_NAMES } from "../../lib/chessCoach";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
@@ -374,12 +374,42 @@ export default function PlayPage() {
         } catch {
           // ignore
         }
-        const immediate = coachMoveWithoutEval(move, game, gameBefore);
-        setCoachMessage(immediate);
 
-        // Detect blunders heuristically for the LLM coach
+        // Look up engine eval of the position BEFORE the player's move
+        const beforeEval = evalCache[prevFen];
+        const playerPlayedBest = beforeEval?.bestMove
+          ? isMoveBest(move.from, move.to, beforeEval.bestMove)
+          : false;
+
+        // Detect blunders heuristically
         const blunder = detectBlunder(game);
-        const heuristicClassification = blunder ? "blunder" : null;
+
+        // Classify: blunder (heuristic) > best (engine) > unknown
+        let heuristicClassification = null;
+        if (blunder) {
+          heuristicClassification = "blunder";
+        } else if (playerPlayedBest) {
+          heuristicClassification = "best";
+        }
+
+        // Build immediate feedback
+        let immediate;
+        if (blunder) {
+          immediate = coachMoveWithoutEval(move, game, gameBefore);
+        } else if (beforeEval?.bestMove && !playerPlayedBest) {
+          // Player didn't play the best move — suggest it
+          const bestUci = beforeEval.bestMove;
+          const bestFrom = bestUci.slice(0, 2);
+          const bestTo = bestUci.slice(2, 4);
+          const pieceName = PIECE_NAMES[move.piece] || move.piece;
+          immediate = `${move.san} is okay, but the engine suggests ${bestFrom} to ${bestTo} was stronger. I'm getting you a deeper analysis...`;
+        } else if (playerPlayedBest) {
+          immediate = `Excellent! ${move.san} is the engine's top choice. I'm getting you a deeper analysis...`;
+        } else {
+          immediate = coachMoveWithoutEval(move, game, gameBefore);
+        }
+
+        setCoachMessage(immediate);
         setCoachClassification(heuristicClassification);
         setCoachLoading(true);
 
@@ -398,6 +428,8 @@ export default function PlayPage() {
             moveCaptured: move.captured,
             classification: heuristicClassification,
             blunderDetail: blunder?.detail || null,
+            bestMoveUci: beforeEval?.bestMove || null,
+            playerPlayedBest,
             moveNumber: Math.floor(moveIdx / 2) + 1,
             turn: move.color === "w" ? "black" : "white",
             pgnMoves: recentSans,
@@ -637,6 +669,11 @@ export default function PlayPage() {
         </div>
       )}
 
+      {/* FEN/PGN export after game over */}
+      {gameOver && (
+        <GameExportPanel fen={fen} moves={moves} playerColor={playerColor} />
+      )}
+
       {/* Main layout */}
       {coachEnabled ? (
         <div className="board-layout-coach">
@@ -778,6 +815,89 @@ export default function PlayPage() {
           </aside>
         </div>
       )}
+    </div>
+  );
+}
+
+function GameExportPanel({ fen, moves, playerColor }) {
+  const [copied, setCopied] = useState("");
+
+  const pgn = useMemo(() => {
+    const game = new Chess();
+    const sans = [];
+    for (const m of moves) {
+      try {
+        game.move(m.san);
+        sans.push(m.san);
+      } catch {
+        break;
+      }
+    }
+
+    const date = new Date();
+    const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+
+    const white = playerColor === "white" ? "You" : "Chess-Surgeon Bot";
+    const black = playerColor === "white" ? "Chess-Surgeon Bot" : "You";
+    const result = game.isCheckmate()
+      ? game.turn() === "w" ? "0-1" : "1-0"
+      : game.isDraw() ? "1/2-1/2" : "*";
+
+    let pgnText = `[Event "Chess-Surgeon Play"]\n[Date "${dateStr}"]\n[White "${white}"]\n[Black "${black}"]\n[Result "${result}"]\n\n`;
+
+    for (let i = 0; i < sans.length; i += 2) {
+      const moveNum = Math.floor(i / 2) + 1;
+      const whiteMove = sans[i] || "";
+      const blackMove = sans[i + 1] || "";
+      pgnText += `${moveNum}. ${whiteMove}`;
+      if (blackMove) pgnText += ` ${blackMove}`;
+      pgnText += " ";
+    }
+
+    pgnText += result;
+    return pgnText;
+  }, [moves, playerColor]);
+
+  const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(""), 2000);
+    });
+  };
+
+  return (
+    <div className="game-export-panel">
+      <h3>Game Export</h3>
+
+      <div className="export-section">
+        <div className="export-header">
+          <span className="export-label">FEN (current position)</span>
+          <button
+            className="btn secondary export-copy-btn"
+            onClick={() => copyToClipboard(fen, "fen")}
+          >
+            {copied === "fen" ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <code className="export-code">{fen}</code>
+      </div>
+
+      <div className="export-section">
+        <div className="export-header">
+          <span className="export-label">PGN (full game)</span>
+          <button
+            className="btn secondary export-copy-btn"
+            onClick={() => copyToClipboard(pgn, "pgn")}
+          >
+            {copied === "pgn" ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <pre className="export-pgn">{pgn}</pre>
+      </div>
+
+      <p className="export-hint">
+        Paste the PGN into the Analyze page to review every move with the engine.
+      </p>
     </div>
   );
 }

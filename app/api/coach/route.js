@@ -13,6 +13,7 @@ export async function POST(request) {
     moveCaptured,
     classification,
     blunderDetail,
+    playerPlayedBest,
     evalBefore,
     evalAfter,
     bestMoveUci,
@@ -70,6 +71,16 @@ CRITICAL RULES:
     userParts.push(`Move quality: ${evalDesc[classification] || classification}`);
   }
 
+  if (playerPlayedBest) {
+    userParts.push("The player's move matches the engine's top choice.");
+  }
+
+  if (bestMoveUci && !playerPlayedBest) {
+    userParts.push(
+      `The engine's best move was ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}. The player played ${moveSan} instead. Tell them what the better move was and why it's stronger.`
+    );
+  }
+
   if (evalBefore && evalAfter) {
     const evalToWords = (e) => {
       if (e.evalType === "mate") {
@@ -86,12 +97,6 @@ CRITICAL RULES:
     };
     userParts.push(`Position before the move: ${evalToWords(evalBefore)}`);
     userParts.push(`Position after the move: ${evalToWords(evalAfter)}`);
-  }
-
-  if (bestMoveUci) {
-    userParts.push(
-      `Engine's best move was: ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}`
-    );
   }
 
   if (moveCaptured) {
@@ -147,16 +152,17 @@ CRITICAL RULES:
 
     if (!res.ok) {
       const errText = await res.text();
-      return NextResponse.json({
-        message: generateFallbackMessage(
-          classification,
-          moveSan,
-          bestMoveUci,
-          opening,
-          moveNumber
-        ),
-      });
-    }
+    return NextResponse.json({
+      message: generateFallbackMessage(
+        classification,
+        moveSan,
+        bestMoveUci,
+        playerPlayedBest,
+        opening,
+        moveNumber
+      ),
+    });
+  }
 
     const data = await res.json();
     const choice = data.choices?.[0]?.message;
@@ -166,6 +172,7 @@ CRITICAL RULES:
         classification,
         moveSan,
         bestMoveUci,
+        playerPlayedBest,
         opening,
         moveNumber
       );
@@ -177,6 +184,7 @@ CRITICAL RULES:
         classification,
         moveSan,
         bestMoveUci,
+        playerPlayedBest,
         opening,
         moveNumber
       ),
@@ -188,6 +196,7 @@ function generateFallbackMessage(
   classification,
   moveSan,
   bestMoveUci,
+  playerPlayedBest,
   opening,
   moveNumber
 ) {
@@ -212,7 +221,17 @@ function generateFallbackMessage(
     }`,
   };
 
-  let msg = messages[classification] || `${moveSan} — an interesting choice.`;
+  let msg;
+
+  if (classification && messages[classification]) {
+    msg = messages[classification];
+  } else if (bestMoveUci && !playerPlayedBest) {
+    msg = `${moveSan} is okay, but the engine suggests ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)} was a stronger move. Try to look for that kind of move next time!`;
+  } else if (playerPlayedBest) {
+    msg = `Excellent! ${moveSan} is the engine's top choice — great find!`;
+  } else {
+    msg = `${moveSan} — a reasonable move. Keep developing your pieces and looking for tactics.`;
+  }
 
   if (opening && moveNumber < 12) {
     msg += ` In the ${opening}, focus on controlling the center, developing your pieces, and keeping your king safe.`;
