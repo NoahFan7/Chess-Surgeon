@@ -55,6 +55,8 @@ export default function ChessBoard({
   const [position, setPosition] = useState(game.fen());
   const [lastMove, setLastMove] = useState(null);
   const [moveCount, setMoveCount] = useState(0);
+  const [selectedSquare, setSelectedSquare] = useState(null);
+  const [legalTargets, setLegalTargets] = useState([]);
 
   // Sync external FEN changes (e.g. bot move, PGN load) into the local game.
   useEffect(() => {
@@ -64,6 +66,8 @@ export default function ChessBoard({
         setPosition(game.fen());
         setLastMove(lastMoveProp || null);
         setMoveCount((c) => c + 1);
+        setSelectedSquare(null);
+        setLegalTargets([]);
       } catch {
         // ignore invalid FEN
       }
@@ -97,6 +101,8 @@ export default function ChessBoard({
       setPosition(game.fen());
       setLastMove({ from: move.from, to: move.to });
       setMoveCount((c) => c + 1);
+      setSelectedSquare(null);
+      setLegalTargets([]);
 
       if (onMove) {
         onMove({
@@ -116,6 +122,72 @@ export default function ChessBoard({
     [game, interactive, onMove]
   );
 
+  const attemptMove = useCallback(
+    (from, to) => {
+      const moveOpts = { from, to, promotion: "q" };
+      let move;
+      try {
+        move = game.move(moveOpts);
+      } catch {
+        move = null;
+      }
+      if (!move) return false;
+      setPosition(game.fen());
+      setLastMove({ from: move.from, to: move.to });
+      setMoveCount((c) => c + 1);
+      setSelectedSquare(null);
+      setLegalTargets([]);
+      if (onMove) {
+        onMove({
+          move,
+          fen: game.fen(),
+          game,
+          isCheck: game.inCheck(),
+          isCheckmate: game.isCheckmate(),
+          isDraw: game.isDraw(),
+          isGameOver: game.isGameOver(),
+          turn: game.turn(),
+        });
+      }
+      return true;
+    },
+    [game, onMove]
+  );
+
+  const handleSquareClick = useCallback(
+    (square) => {
+      if (!interactive) return;
+
+      // If a square is already selected, try to move there
+      if (selectedSquare) {
+        if (square === selectedSquare) {
+          // Click same square — deselect
+          setSelectedSquare(null);
+          setLegalTargets([]);
+          return;
+        }
+        if (legalTargets.includes(square)) {
+          attemptMove(selectedSquare, square);
+          return;
+        }
+        // Clicked a non-target square — select it if it has a movable piece
+      }
+
+      // Select the clicked square if it has a piece of the side to move
+      const piece = game.get(square);
+      if (piece && piece.color === game.turn()) {
+        const moves = game.moves({ square, verbose: true });
+        const targets = moves.map((m) => m.to);
+        setSelectedSquare(square);
+        setLegalTargets(targets);
+      } else {
+        setSelectedSquare(null);
+        setLegalTargets([]);
+      }
+    },
+    [game, interactive, selectedSquare, legalTargets, attemptMove]
+  );
+
   const squareStyles = useMemo(() => {
     const styles = {};
     if (lastMove) {
@@ -126,6 +198,22 @@ export default function ChessBoard({
         background: "rgba(255, 230, 0, 0.45)",
       };
     }
+    if (selectedSquare) {
+      styles[selectedSquare] = {
+        ...(styles[selectedSquare] || {}),
+        background: "rgba(74, 144, 226, 0.4)",
+      };
+    }
+    for (const sq of legalTargets) {
+      const isCapture = game.get(sq);
+      styles[sq] = {
+        ...(styles[sq] || {}),
+        background: isCapture
+          ? "radial-gradient(circle, transparent 55%, rgba(226, 56, 56, 0.45) 56%)"
+          : "radial-gradient(circle, rgba(74, 144, 226, 0.4) 22%, transparent 23%)",
+        borderRadius: isCapture ? "0" : "50%",
+      };
+    }
     for (const sq of highlightSquares) {
       styles[sq] = {
         ...(styles[sq] || {}),
@@ -134,7 +222,8 @@ export default function ChessBoard({
       };
     }
     return styles;
-  }, [lastMove, highlightSquares, moveCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMove, selectedSquare, legalTargets, highlightSquares, moveCount]);
 
   return (
     <div className="cs-board-wrap" ref={containerRef}>
@@ -142,6 +231,7 @@ export default function ChessBoard({
         id="ChessBoard"
         position={position}
         onPieceDrop={handleDrop}
+        onSquareClick={handleSquareClick}
         boardOrientation={orientation}
         arePiecesDraggable={interactive}
         customArrows={arrows}
