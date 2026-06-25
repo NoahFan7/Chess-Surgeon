@@ -43,6 +43,8 @@ export default function AnalysisPanel({
   showArrow,
   onToggleArrow,
   accuracy,
+  showCoordinates,
+  onToggleCoordinates,
 }) {
   const evalText = formatEval(evalScore, evalType, turn);
   const barPercent = evalBarPercent(evalScore, evalType, turn);
@@ -61,6 +63,16 @@ export default function AnalysisPanel({
             />
             <span>Show best move</span>
           </label>
+          {onToggleCoordinates && (
+            <label className="arrow-toggle">
+              <input
+                type="checkbox"
+                checked={showCoordinates}
+                onChange={onToggleCoordinates}
+              />
+              <span>Coordinates</span>
+            </label>
+          )}
         </div>
       </div>
 

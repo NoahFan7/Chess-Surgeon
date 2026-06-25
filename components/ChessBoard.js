@@ -22,6 +22,7 @@ export default function ChessBoard({
   lastMove: lastMoveProp,
   onMove,
   boardWidth,
+  showCoordinates = true,
 }) {
   const game = useMemo(() => {
     const g = new Chess();
@@ -244,6 +245,7 @@ export default function ChessBoard({
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
         }}
         customNotationStyle={{ fontSize: "11px", color: "#9aa3b8" }}
+        showBoardNotation={showCoordinates}
       />
     </div>
   );

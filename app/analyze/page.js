@@ -94,6 +94,7 @@ export default function AnalyzePage() {
   const [coachMessage, setCoachMessage] = useState("");
   const [coachClassification, setCoachClassification] = useState(null);
   const [showArrow, setShowArrow] = useState(true);
+  const [showCoordinates, setShowCoordinates] = useState(true);
 
   // Try-line mode: when user makes a move during PGN review, we branch
   // but preserve the original game so they can return to it
@@ -608,6 +609,8 @@ export default function AnalyzePage() {
         showArrow={showArrow}
         onToggleArrow={() => setShowArrow((s) => !s)}
         accuracy={accuracy}
+        showCoordinates={showCoordinates}
+        onToggleCoordinates={() => setShowCoordinates((s) => !s)}
       />
 
       <div className="board-layout-coach">
@@ -629,6 +632,7 @@ export default function AnalyzePage() {
             orientation={orientation}
             onMove={handleBoardMove}
             arrows={arrows}
+            showCoordinates={showCoordinates}
           />
           <aside className="board-side">
             <p

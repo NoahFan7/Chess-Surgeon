@@ -38,6 +38,7 @@ export default function PlayPage() {
   const [playerColor, setPlayerColor] = useState("white");
   const [coachEnabled, setCoachEnabled] = useState(true);
   const [showHint, setShowHint] = useState(false);
+  const [showCoordinates, setShowCoordinates] = useState(true);
   const [botType, setBotType] = useState("stockfish"); // "stockfish" | "llm"
   const [llmModelId, setLlmModelId] = useState(DEFAULT_LLM_MODEL);
   const [llmThinking, setLlmThinking] = useState(false);
@@ -858,6 +859,17 @@ export default function PlayPage() {
         </div>
 
         <div className="setting-group">
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={showCoordinates}
+              onChange={(e) => setShowCoordinates(e.target.checked)}
+            />
+            <span>Coordinates</span>
+          </label>
+        </div>
+
+        <div className="setting-group">
           {!gameStarted || gameOver ? (
             <button className="btn" onClick={startGame}>
               {gameOver ? "New Game" : "Start Game"}
@@ -943,6 +955,7 @@ export default function PlayPage() {
                 arrows={hintArrow}
                 lastMove={lastMove}
                 onMove={handleBoardMove}
+                showCoordinates={showCoordinates}
               />
               {(stockfish.isThinking || llmThinking) && isBotTurn && (
                 <div className="bot-thinking">
@@ -1013,6 +1026,7 @@ export default function PlayPage() {
               arrows={hintArrow}
               lastMove={lastMove}
               onMove={handleBoardMove}
+              showCoordinates={showCoordinates}
             />
             {(stockfish.isThinking || llmThinking) && isBotTurn && (
               <div className="bot-thinking">
