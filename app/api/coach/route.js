@@ -12,6 +12,7 @@ export async function POST(request) {
     movePiece,
     moveCaptured,
     classification,
+    blunderDetail,
     evalBefore,
     evalAfter,
     bestMoveUci,
@@ -39,7 +40,14 @@ export async function POST(request) {
     });
   }
 
-  const systemPrompt = `You are a friendly, encouraging chess coach for beginners. Keep your responses to 2-3 sentences in plain English. Never use numbers, evaluations, or technical notation like "+0.75" or "pawn advantage." Instead of numbers, describe who's doing better in plain words like "you're in a good spot" or "you're falling behind here." Explain WHY a move is good or bad in simple terms a beginner can understand. If it's an opening, briefly mention what the opening is trying to achieve. Be encouraging but honest.`;
+  const systemPrompt = `You are a friendly but honest chess coach for beginners. Keep your responses to 2-3 sentences in plain English. Never use numbers, evaluations, or technical notation like "+0.75" or "pawn advantage." Instead of numbers, describe who's doing better in plain words like "you're in a good spot" or "you're falling behind here." Explain WHY a move is good or bad in simple terms a beginner can understand.
+
+CRITICAL RULES:
+- If a move is a blunder or mistake, be direct about it. Say things like "uh oh!" or "careful!" and explain what went wrong and what they should do next to recover.
+- NEVER give false praise for bad moves. If the player hung a piece or made a mistake, say so clearly and kindly.
+- For good moves, be encouraging but don't over-praise.
+- Do NOT show your reasoning, thinking process, or analysis steps. Just give the final coaching message directly.
+- If it's an opening, briefly mention what the opening is trying to achieve.`;
 
   const userParts = [];
 
@@ -88,6 +96,13 @@ export async function POST(request) {
 
   if (moveCaptured) {
     userParts.push(`This move captured a ${moveCaptured}.`);
+  }
+
+  if (blunderDetail) {
+    userParts.push(`BLUNDER DETECTED: ${blunderDetail}`);
+    userParts.push(
+      `The player made a mistake. Tell them what went wrong and what they should focus on next to recover.`
+    );
   }
 
   if (isCheck) {
@@ -147,7 +162,6 @@ export async function POST(request) {
     const choice = data.choices?.[0]?.message;
     const message =
       choice?.content ||
-      choice?.reasoning ||
       generateFallbackMessage(
         classification,
         moveSan,

@@ -8,7 +8,7 @@ import CoachPanel from "../../components/CoachPanel";
 import useStockfishPlayer from "../../hooks/useStockfishPlayer";
 import { ELO_PRESETS, DEFAULT_ELO, getPresetByElo } from "../../lib/eloLevels";
 import { classifyMove, isMoveBest, uciToArrow } from "../../lib/chessAnalysis";
-import { coachMoveWithoutEval } from "../../lib/chessCoach";
+import { coachMoveWithoutEval, detectBlunder } from "../../lib/chessCoach";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
   ssr: false,
@@ -376,7 +376,11 @@ export default function PlayPage() {
         }
         const immediate = coachMoveWithoutEval(move, game, gameBefore);
         setCoachMessage(immediate);
-        setCoachClassification(null);
+
+        // Detect blunders heuristically for the LLM coach
+        const blunder = detectBlunder(game);
+        const heuristicClassification = blunder ? "blunder" : null;
+        setCoachClassification(heuristicClassification);
         setCoachLoading(true);
 
         const recentSans = moves
@@ -392,6 +396,8 @@ export default function PlayPage() {
             moveSan: move.san,
             movePiece: move.piece,
             moveCaptured: move.captured,
+            classification: heuristicClassification,
+            blunderDetail: blunder?.detail || null,
             moveNumber: Math.floor(moveIdx / 2) + 1,
             turn: move.color === "w" ? "black" : "white",
             pgnMoves: recentSans,
