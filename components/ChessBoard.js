@@ -226,6 +226,28 @@ export default function ChessBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastMove, selectedSquare, legalTargets, highlightSquares, moveCount]);
 
+  // Generate per-square coordinate labels for the toggleable overlay
+  const boardSquares = useMemo(() => {
+    const files = orientation === "white"
+      ? ["a", "b", "c", "d", "e", "f", "g", "h"]
+      : ["h", "g", "f", "e", "d", "c", "b", "a"];
+    const ranks = orientation === "white"
+      ? ["8", "7", "6", "5", "4", "3", "2", "1"]
+      : ["1", "2", "3", "4", "5", "6", "7", "8"];
+
+    const squares = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        squares.push({
+          label: files[c] + ranks[r],
+          x: c * 12.5,
+          y: r * 12.5,
+        });
+      }
+    }
+    return squares;
+  }, [orientation]);
+
   return (
     <div className="cs-board-wrap" ref={containerRef}>
       <Chessboard
@@ -244,9 +266,25 @@ export default function ChessBoard({
           borderRadius: "6px",
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
         }}
-        customNotationStyle={{ fontSize: "11px", color: "#9aa3b8" }}
-        showBoardNotation={showCoordinates}
+        customNotationStyle={{ fontSize: "14px", color: "#e6e9f2", fontWeight: "700" }}
+        showBoardNotation={true}
       />
+      {showCoordinates && (
+        <div className="square-coordinates-overlay">
+          {boardSquares.map((sq) => (
+            <span
+              key={sq}
+              className="square-coord-label"
+              style={{
+                left: `${sq.x}%`,
+                top: `${sq.y}%`,
+              }}
+            >
+              {sq.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
