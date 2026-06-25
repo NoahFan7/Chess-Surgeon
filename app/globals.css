@@ -1301,3 +1301,162 @@ a:hover {
   color: var(--muted);
   margin: 0.75rem 0 0;
 }
+
+/* ===== Tactic links in coach messages ===== */
+
+.tactic-link {
+  color: #5bc0de;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tactic-link:hover {
+  color: #7dd8f0;
+  text-decoration: solid;
+}
+
+/* ===== Learn pages ===== */
+
+.learn-intro {
+  color: var(--muted);
+  max-width: 620px;
+  line-height: 1.5;
+  margin-bottom: 2rem;
+}
+
+.learn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.learn-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  transition: border-color 0.15s ease;
+}
+
+.learn-card:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.learn-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.learn-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.learn-page {
+  max-width: 1000px;
+}
+
+.learn-header {
+  margin-bottom: 1.5rem;
+}
+
+.learn-back {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.learn-back:hover {
+  color: var(--accent);
+}
+
+.learn-shortdesc {
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.learn-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .learn-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+.learn-board {
+  max-width: 480px;
+}
+
+.learn-move-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.75rem;
+  line-height: 1.5;
+}
+
+.learn-explanation h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.75rem;
+}
+
+.learn-explanation p {
+  line-height: 1.65;
+  color: var(--text);
+  margin-bottom: 1.5rem;
+}
+
+.learn-explanation h3 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.learn-tips {
+  list-style: disc;
+  padding-left: 1.5rem;
+  color: var(--text);
+}
+
+.learn-tips li {
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.learn-nav {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.learn-tactic-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.learn-tactic-link {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+
+.learn-tactic-link:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+}

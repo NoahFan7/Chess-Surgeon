@@ -30,6 +30,13 @@ export default function HomePage() {
             a similar spot and see what the pros played.
           </p>
         </Link>
+        <Link className="card" href="/learn">
+          <h2>Learn tactics</h2>
+          <p>
+            Beginner-friendly guides to forks, pins, skewers, and more — with
+            examples and tips to spot them in your games.
+          </p>
+        </Link>
         <Link className="card" href="/play">
           <h2>Play vs coaching AI</h2>
           <p>

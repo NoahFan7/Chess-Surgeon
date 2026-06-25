@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { TACTIC_KEYWORDS } from "../lib/tactics";
 
 /**
  * Coach avatar SVG — a friendly chess coach character.
@@ -51,6 +53,35 @@ function CoachAvatar({ talking, mood = "neutral" }) {
       <circle cx="50" cy="60" r="2" fill="#a33" />
     </svg>
   );
+}
+
+/**
+ * Render a message string with tactics terms as clickable links.
+ * Splits the text on tactic keywords and wraps matches in <Link>.
+ */
+function renderWithTacticLinks(text) {
+  if (!text) return text;
+
+  // Build a regex that matches any tactic keyword (case-insensitive)
+  const keywords = TACTIC_KEYWORDS.map((k) => k.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const regex = new RegExp(`(${keywords.join("|")})`, "gi");
+
+  const parts = text.split(regex);
+
+  return parts.map((part, i) => {
+    if (!part) return null;
+    const match = TACTIC_KEYWORDS.find(
+      (k) => k.term.toLowerCase() === part.toLowerCase()
+    );
+    if (match) {
+      return (
+        <Link key={i} href={`/learn/${match.slug}`} className="tactic-link">
+          {part}
+        </Link>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
 
 /**
@@ -115,7 +146,9 @@ export default function CoachPanel({
       <div className="coach-header">
         <CoachAvatar talking={typing} mood={mood} />
         <div className="coach-bubble">
-          {displayedMessage || (isAnalyzing ? "Let me analyze this position..." : "Make a move and I'll coach you through it!")}
+          {displayedMessage
+            ? renderWithTacticLinks(displayedMessage)
+            : (isAnalyzing ? "Let me analyze this position..." : "Make a move and I'll coach you through it!")}
           {typing && <span className="coach-cursor">|</span>}
           {isThinking && !typing && <span className="coach-thinking">Thinking...</span>}
         </div>

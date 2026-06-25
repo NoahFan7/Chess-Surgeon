@@ -339,8 +339,14 @@ export default function PlayPage() {
   // After the bot moves, it stores the eval of the position after the player's
   // move. This effect detects when a NEW classification comes in for the
   // player's most recent move and updates the coach message with accurate
-  // feedback (catching mistakes/blunders the immediate heuristic missed).
+  // feedback, then calls the LLM once with full classification data.
+  //
+  // This is the ONLY place the LLM coach is called — handleBoardMove just
+  // shows immediate feedback, and this effect fires after the bot responds
+  // with accurate eval data. This prevents critical feedback from being
+  // overwritten by a generic LLM response before the player can read it.
   const lastCoachedMoveIdxRef = useRef(-1);
+  const coachMessageTimeRef = useRef(0);
 
   useEffect(() => {
     if (!coachEnabled || !gameStarted || gameOver) return;
@@ -360,13 +366,6 @@ export default function PlayPage() {
     if (!classification) return;
     if (lastCoachedMoveIdxRef.current >= lastPlayerMoveIdx) return;
 
-    // Only intervene for sub-optimal moves (the immediate feedback already
-    // handled "best" moves and heuristic blunders)
-    if (["best", "great"].includes(classification)) {
-      lastCoachedMoveIdxRef.current = lastPlayerMoveIdx;
-      return;
-    }
-
     lastCoachedMoveIdxRef.current = lastPlayerMoveIdx;
 
     const move = moves[lastPlayerMoveIdx];
@@ -377,23 +376,39 @@ export default function PlayPage() {
 
     if (!before || !after) return;
 
-    // Build updated immediate feedback with classification
+    // Build updated feedback with accurate classification
     const bestSan = before.bestMove ? uciToSan(before.bestMove, beforeFen) : null;
+    const isCritical = ["inaccuracy", "mistake", "blunder"].includes(classification);
+
     const classLabels = {
+      best: "the engine's top choice",
+      great: "a great move",
+      good: "a decent move",
       inaccuracy: "a slight inaccuracy",
       mistake: "a mistake",
       blunder: "a blunder",
     };
 
     let updatedMessage;
-    if (bestSan) {
-      updatedMessage = `${move.san} was ${classLabels[classification] || "not the best move"}. The engine suggests ${bestSan} instead — I'm getting you a deeper analysis...`;
+    if (isCritical) {
+      if (bestSan) {
+        updatedMessage = `${move.san} was ${classLabels[classification]}. The engine suggests ${bestSan} instead. Let me break down what went wrong...`;
+      } else {
+        updatedMessage = `${move.san} was ${classLabels[classification]}. Let me break down what went wrong...`;
+      }
+    } else if (classification === "best") {
+      updatedMessage = `Excellent! ${move.san} was ${classLabels[classification]}. Let me tell you why it's so good...`;
     } else {
-      updatedMessage = `${move.san} was ${classLabels[classification] || "not the best move"}. I'm getting you a deeper analysis...`;
+      if (bestSan) {
+        updatedMessage = `${move.san} was ${classLabels[classification]}, but the engine suggests ${bestSan} was slightly better. Let me explain...`;
+      } else {
+        updatedMessage = `${move.san} was ${classLabels[classification]}. Let me explain...`;
+      }
     }
 
     setCoachMessage(updatedMessage);
     setCoachClassification(classification);
+    coachMessageTimeRef.current = Date.now();
 
     // Call LLM coach with full classification + eval info
     setCoachLoading(true);
@@ -401,31 +416,42 @@ export default function PlayPage() {
       .slice(Math.max(0, lastPlayerMoveIdx - 5), lastPlayerMoveIdx + 1)
       .map((m) => m.san);
 
-    fetch("/api/coach", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fen: afterFen,
-        moveSan: move.san,
-        movePiece: move.piece,
-        moveCaptured: move.captured,
-        classification,
-        blunderDetail: null,
-        bestMoveUci: before.bestMove || null,
-        playerPlayedBest: classification === "best",
-        evalBefore: before,
-        evalAfter: after,
-        moveNumber: Math.floor(lastPlayerMoveIdx / 2) + 1,
-        turn: move.color === "w" ? "black" : "white",
-        pgnMoves: recentSans,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.message) setCoachMessage(data.message);
+    // Delay LLM call for critical feedback so the player has time to read it
+    const llmDelay = isCritical ? 3500 : 1000;
+
+    const timer = setTimeout(() => {
+      fetch("/api/coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fen: afterFen,
+          moveSan: move.san,
+          movePiece: move.piece,
+          moveCaptured: move.captured,
+          classification,
+          blunderDetail: null,
+          bestMoveUci: before.bestMove || null,
+          playerPlayedBest: classification === "best",
+          evalBefore: before,
+          evalAfter: after,
+          moveNumber: Math.floor(lastPlayerMoveIdx / 2) + 1,
+          turn: move.color === "w" ? "black" : "white",
+          pgnMoves: recentSans,
+        }),
       })
-      .catch(() => {})
-      .finally(() => setCoachLoading(false));
+        .then((res) => res.json())
+        .then((data) => {
+          // Only overwrite if enough time has passed (player could have
+          // started a new move)
+          if (data.message && lastCoachedMoveIdxRef.current === lastPlayerMoveIdx) {
+            setCoachMessage(data.message);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setCoachLoading(false));
+    }, llmDelay);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classifications, evalCache, moves, positionFens, playerColorCode, coachEnabled, gameStarted, gameOver]);
 
@@ -506,38 +532,11 @@ export default function PlayPage() {
 
         setCoachMessage(immediate);
         setCoachClassification(heuristicClassification);
-        setCoachLoading(true);
-
-        const recentSans = moves
-          .slice(Math.max(0, moveIdx - 5), moveIdx)
-          .map((m) => m.san);
-        recentSans.push(move.san);
-
-        fetch("/api/coach", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fen: newFen,
-            moveSan: move.san,
-            movePiece: move.piece,
-            moveCaptured: move.captured,
-            classification: heuristicClassification,
-            blunderDetail: blunder?.detail || null,
-            bestMoveUci: beforeEval?.bestMove || null,
-            playerPlayedBest,
-            moveNumber: Math.floor(moveIdx / 2) + 1,
-            turn: move.color === "w" ? "black" : "white",
-            pgnMoves: recentSans,
-            isCheck,
-            isCheckmate,
-          }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.message) setCoachMessage(data.message);
-          })
-          .catch(() => {})
-          .finally(() => setCoachLoading(false));
+        setCoachLoading(false);
+        // LLM coach call is handled by the post-bot-move effect, which has
+        // accurate classification data (before + after eval comparison).
+        // This prevents the critical feedback from being overwritten by a
+        // generic LLM response before the player has time to read it.
       }
     },
     [coachEnabled, moves, positionFens, updateStatus]
