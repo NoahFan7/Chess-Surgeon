@@ -234,11 +234,24 @@ export default function useStockfishPlayer({ onComplete } = {}) {
         }
 
         if (isSearchingRef.current) {
-          // A search is running (likely a coach analysis).
+          // A search is running (likely a coach analysis or hint).
           // Stop it and queue this request. The interrupted search's
           // bestmove will be processed first, then this request starts.
-          pendingRequestRef.current = { fen, options, resolve };
+          const pending = { fen, options, resolve };
+          pendingRequestRef.current = pending;
           workerRef.current.postMessage("stop");
+
+          // Safety: if the interrupted search doesn't produce a bestmove
+          // within 3 seconds (e.g. worker hadn't started searching when
+          // "stop" was sent), force-start this search so the bot never
+          // freezes.
+          setTimeout(() => {
+            if (pendingRequestRef.current === pending) {
+              pendingRequestRef.current = null;
+              resolverRef.current = resolve;
+              startSearch(fen, options);
+            }
+          }, 3000);
           return;
         }
 

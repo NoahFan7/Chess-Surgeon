@@ -18,7 +18,8 @@ const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const COACH_DEPTH = 12;
-const ADAPTIVE_INTERVAL = 5;
+const ADAPTIVE_INTERVAL = 8;
+const ADAPTIVE_RANGE = 300;
 
 export default function PlayPage() {
   // Game state
@@ -49,6 +50,8 @@ export default function PlayPage() {
   // Adaptive AI
   const [adaptiveNote, setAdaptiveNote] = useState("");
   const [effectiveElo, setEffectiveElo] = useState(DEFAULT_ELO);
+  const [botRetry, setBotRetry] = useState(0);
+  const lastAdaptedAtRef = useRef(0);
 
   // Engine
   const onComplete = useCallback((analyzedFen, result) => {
@@ -70,6 +73,18 @@ export default function PlayPage() {
   const botColorCode = playerColor === "white" ? "b" : "w";
   const orientation = playerColor;
   const preset = getPresetByElo(effectiveElo);
+
+  // Refs to avoid retriggering the bot effect when non-essential state changes
+  const presetRef = useRef(preset);
+  const gameOverRef = useRef(gameOver);
+
+  useEffect(() => {
+    presetRef.current = preset;
+  }, [preset]);
+
+  useEffect(() => {
+    gameOverRef.current = gameOver;
+  }, [gameOver]);
 
   const turn = useMemo(() => fen.split(" ")[1] || "w", [fen]);
   const isPlayerTurn = turn === playerColorCode && !gameOver && gameStarted;
@@ -118,32 +133,37 @@ export default function PlayPage() {
   }, [playerColor]);
 
   // ---- Bot move effect ----
+  // Uses fen guard + presetRef so adaptive ELO changes or evalCache updates
+  // don't cancel an in-flight bot move (which was causing freezes).
   const botThinkingForRef = useRef(null);
 
   useEffect(() => {
     if (!stockfish.isReady || !isBotTurn) return;
     if (botThinkingForRef.current === fen) return;
     botThinkingForRef.current = fen;
-
-    let cancelled = false;
+    const targetFen = fen;
 
     (async () => {
-      const res = await stockfish.getMove(fen, {
-        depth: preset.depth,
-        skillLevel: preset.skillLevel,
-        movetime: preset.movetime,
+      const p = presetRef.current;
+      const res = await stockfish.getMove(targetFen, {
+        depth: p.depth,
+        skillLevel: p.skillLevel,
+        movetime: p.movetime,
       });
 
-      if (cancelled) return;
+      // Skip if superseded (game reset, undo, or resigned)
+      if (botThinkingForRef.current !== targetFen) return;
+      if (gameOverRef.current) return;
 
       if (!res.move) {
         botThinkingForRef.current = null;
+        setBotRetry((r) => r + 1);
         return;
       }
 
       const game = new Chess();
       try {
-        game.load(fen);
+        game.load(targetFen);
       } catch {
         botThinkingForRef.current = null;
         return;
@@ -162,6 +182,7 @@ export default function PlayPage() {
 
       if (!move) {
         botThinkingForRef.current = null;
+        setBotRetry((r) => r + 1);
         return;
       }
 
@@ -187,7 +208,7 @@ export default function PlayPage() {
       if (res.evalScore !== null) {
         setEvalCache((prev) => ({
           ...prev,
-          [fen]: {
+          [targetFen]: {
             evalScore: res.evalScore,
             evalType: res.evalType,
             bestMove: res.move,
@@ -199,18 +220,12 @@ export default function PlayPage() {
 
       updateStatus(game);
     })();
-
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     stockfish.isReady,
     fen,
     isBotTurn,
-    preset.depth,
-    preset.skillLevel,
-    preset.movetime,
+    botRetry,
     updateStatus,
   ]);
 
@@ -266,37 +281,53 @@ export default function PlayPage() {
     setClassifications(newClassifications);
 
     // ---- Adaptive AI ----
+    // Only adapt after enough NEW classifications since the last adaptation,
+    // and cap the effective ELO to ±ADAPTIVE_RANGE of the base difficulty.
     const playerClassifications = Object.entries(newClassifications).map(
       ([idx, label]) => ({ idx: parseInt(idx, 10), label })
     );
 
-    if (playerClassifications.length >= ADAPTIVE_INTERVAL) {
-      const recent = playerClassifications.slice(-ADAPTIVE_INTERVAL);
-      const scores = {
-        best: 100,
-        great: 95,
-        good: 85,
-        inaccuracy: 65,
-        mistake: 45,
-        blunder: 10,
-      };
-      const avg =
-        recent.reduce((sum, { label }) => sum + (scores[label] || 50), 0) /
-        recent.length;
+    const totalClassified = playerClassifications.length;
+    if (totalClassified - lastAdaptedAtRef.current < ADAPTIVE_INTERVAL) return;
 
-      const currentIdx = ELO_PRESETS.findIndex((p) => p.elo === effectiveElo);
-      if (avg > 85 && currentIdx < ELO_PRESETS.length - 1) {
-        const newElo = ELO_PRESETS[currentIdx + 1].elo;
-        setEffectiveElo(newElo);
+    const recent = playerClassifications.slice(-ADAPTIVE_INTERVAL);
+    const scores = {
+      best: 100,
+      great: 95,
+      good: 85,
+      inaccuracy: 65,
+      mistake: 45,
+      blunder: 10,
+    };
+    const avg =
+      recent.reduce((sum, { label }) => sum + (scores[label] || 50), 0) /
+      recent.length;
+
+    const minElo = Math.max(ELO_PRESETS[0].elo, elo - ADAPTIVE_RANGE);
+    const maxElo = Math.min(
+      ELO_PRESETS[ELO_PRESETS.length - 1].elo,
+      elo + ADAPTIVE_RANGE
+    );
+
+    const currentIdx = ELO_PRESETS.findIndex((p) => p.elo === effectiveElo);
+
+    if (avg > 88 && currentIdx < ELO_PRESETS.length - 1) {
+      const nextElo = ELO_PRESETS[currentIdx + 1].elo;
+      if (nextElo <= maxElo) {
+        setEffectiveElo(nextElo);
+        lastAdaptedAtRef.current = totalClassified;
         setAdaptiveNote(
-          `You're playing great! Bumping up to ${newElo} ELO.`
+          `You're playing well! Bumping up to ${nextElo} ELO.`
         );
         setTimeout(() => setAdaptiveNote(""), 5000);
-      } else if (avg < 50 && currentIdx > 0) {
-        const newElo = ELO_PRESETS[currentIdx - 1].elo;
-        setEffectiveElo(newElo);
+      }
+    } else if (avg < 42 && currentIdx > 0) {
+      const prevElo = ELO_PRESETS[currentIdx - 1].elo;
+      if (prevElo >= minElo) {
+        setEffectiveElo(prevElo);
+        lastAdaptedAtRef.current = totalClassified;
         setAdaptiveNote(
-          `Adjusting down to ${newElo} ELO — let's find your rhythm.`
+          `Adjusting down to ${prevElo} ELO — let's find your rhythm.`
         );
         setTimeout(() => setAdaptiveNote(""), 5000);
       }
@@ -435,6 +466,8 @@ export default function PlayPage() {
     setCoachClassification(null);
     setAdaptiveNote("");
     setEffectiveElo(elo);
+    lastAdaptedAtRef.current = 0;
+    setBotRetry(0);
     coachAnalyzedRef.current = {};
     hintRequestedRef.current = null;
     botThinkingForRef.current = null;
@@ -445,6 +478,7 @@ export default function PlayPage() {
     setResult("loss");
     setStatus(`You resigned — ${playerColor === "white" ? "Black" : "White"} (bot) wins`);
     setCoachMessage("No worries — every game is a learning opportunity. Want to play another?");
+    botThinkingForRef.current = null;
   }
 
   function undoMove() {
