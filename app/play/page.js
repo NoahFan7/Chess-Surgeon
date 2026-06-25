@@ -7,7 +7,7 @@ import MoveList from "../../components/MoveList";
 import CoachPanel from "../../components/CoachPanel";
 import useStockfishPlayer from "../../hooks/useStockfishPlayer";
 import { ELO_PRESETS, DEFAULT_ELO, getPresetByElo } from "../../lib/eloLevels";
-import { classifyMove, isMoveBest, uciToArrow } from "../../lib/chessAnalysis";
+import { classifyMove, isMoveBest, uciToArrow, uciToSan } from "../../lib/chessAnalysis";
 import { coachMoveWithoutEval, detectBlunder, PIECE_NAMES } from "../../lib/chessCoach";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
@@ -335,6 +335,100 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evalCache, moves, positionFens, playerColorCode]);
 
+  // ---- Post-bot-move coach update ----
+  // After the bot moves, it stores the eval of the position after the player's
+  // move. This effect detects when a NEW classification comes in for the
+  // player's most recent move and updates the coach message with accurate
+  // feedback (catching mistakes/blunders the immediate heuristic missed).
+  const lastCoachedMoveIdxRef = useRef(-1);
+
+  useEffect(() => {
+    if (!coachEnabled || !gameStarted || gameOver) return;
+
+    // Find the player's most recent move
+    let lastPlayerMoveIdx = -1;
+    for (let i = moves.length - 1; i >= 0; i--) {
+      if (moves[i].color === playerColorCode) {
+        lastPlayerMoveIdx = i;
+        break;
+      }
+    }
+    if (lastPlayerMoveIdx < 0) return;
+
+    // Only update if this move just got classified and we haven't coached it yet
+    const classification = classifications[lastPlayerMoveIdx];
+    if (!classification) return;
+    if (lastCoachedMoveIdxRef.current >= lastPlayerMoveIdx) return;
+
+    // Only intervene for sub-optimal moves (the immediate feedback already
+    // handled "best" moves and heuristic blunders)
+    if (["best", "great"].includes(classification)) {
+      lastCoachedMoveIdxRef.current = lastPlayerMoveIdx;
+      return;
+    }
+
+    lastCoachedMoveIdxRef.current = lastPlayerMoveIdx;
+
+    const move = moves[lastPlayerMoveIdx];
+    const beforeFen = positionFens[lastPlayerMoveIdx];
+    const afterFen = positionFens[lastPlayerMoveIdx + 1];
+    const before = evalCache[beforeFen];
+    const after = evalCache[afterFen];
+
+    if (!before || !after) return;
+
+    // Build updated immediate feedback with classification
+    const bestSan = before.bestMove ? uciToSan(before.bestMove, beforeFen) : null;
+    const classLabels = {
+      inaccuracy: "a slight inaccuracy",
+      mistake: "a mistake",
+      blunder: "a blunder",
+    };
+
+    let updatedMessage;
+    if (bestSan) {
+      updatedMessage = `${move.san} was ${classLabels[classification] || "not the best move"}. The engine suggests ${bestSan} instead — I'm getting you a deeper analysis...`;
+    } else {
+      updatedMessage = `${move.san} was ${classLabels[classification] || "not the best move"}. I'm getting you a deeper analysis...`;
+    }
+
+    setCoachMessage(updatedMessage);
+    setCoachClassification(classification);
+
+    // Call LLM coach with full classification + eval info
+    setCoachLoading(true);
+    const recentSans = moves
+      .slice(Math.max(0, lastPlayerMoveIdx - 5), lastPlayerMoveIdx + 1)
+      .map((m) => m.san);
+
+    fetch("/api/coach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fen: afterFen,
+        moveSan: move.san,
+        movePiece: move.piece,
+        moveCaptured: move.captured,
+        classification,
+        blunderDetail: null,
+        bestMoveUci: before.bestMove || null,
+        playerPlayedBest: classification === "best",
+        evalBefore: before,
+        evalAfter: after,
+        moveNumber: Math.floor(lastPlayerMoveIdx / 2) + 1,
+        turn: move.color === "w" ? "black" : "white",
+        pgnMoves: recentSans,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.message) setCoachMessage(data.message);
+      })
+      .catch(() => {})
+      .finally(() => setCoachLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classifications, evalCache, moves, positionFens, playerColorCode, coachEnabled, gameStarted, gameOver]);
+
   // ---- Player move handler ----
   const handleBoardMove = useCallback(
     ({ move, fen: newFen, isCheck, isCheckmate, isDraw }) => {
@@ -397,12 +491,13 @@ export default function PlayPage() {
         if (blunder) {
           immediate = coachMoveWithoutEval(move, game, gameBefore);
         } else if (beforeEval?.bestMove && !playerPlayedBest) {
-          // Player didn't play the best move — suggest it
-          const bestUci = beforeEval.bestMove;
-          const bestFrom = bestUci.slice(0, 2);
-          const bestTo = bestUci.slice(2, 4);
-          const pieceName = PIECE_NAMES[move.piece] || move.piece;
-          immediate = `${move.san} is okay, but the engine suggests ${bestFrom} to ${bestTo} was stronger. I'm getting you a deeper analysis...`;
+          // Player didn't play the best move — suggest it in SAN
+          const bestSan = uciToSan(beforeEval.bestMove, prevFen);
+          if (bestSan) {
+            immediate = `${move.san} is okay, but the engine suggests ${bestSan} was stronger. I'm getting you a deeper analysis...`;
+          } else {
+            immediate = `${move.san} is okay, but there was a stronger move available. I'm getting you a deeper analysis...`;
+          }
         } else if (playerPlayedBest) {
           immediate = `Excellent! ${move.san} is the engine's top choice. I'm getting you a deeper analysis...`;
         } else {
@@ -506,6 +601,7 @@ export default function PlayPage() {
     setEffectiveElo(elo);
     lastAdaptedAtRef.current = 0;
     setBotRetry(0);
+    lastCoachedMoveIdxRef.current = -1;
     coachAnalyzedRef.current = {};
     hintRequestedRef.current = null;
     botThinkingForRef.current = null;

@@ -46,6 +46,8 @@ export async function POST(request) {
 CRITICAL RULES:
 - If a move is a blunder or mistake, be direct about it. Say things like "uh oh!" or "careful!" and explain what went wrong and what they should do next to recover.
 - NEVER give false praise for bad moves. If the player hung a piece or made a mistake, say so clearly and kindly.
+- ALWAYS tell the player what the better move was when their move wasn't the best. Never just say "that was bad" without telling them what they should have played instead and why.
+- When suggesting a better move, explain in simple terms why it's better (e.g. "it develops a piece and controls the center" or "it protects your king from attack").
 - For good moves, be encouraging but don't over-praise.
 - Do NOT show your reasoning, thinking process, or analysis steps. Just give the final coaching message directly.
 - If it's an opening, briefly mention what the opening is trying to achieve.`;
@@ -77,7 +79,7 @@ CRITICAL RULES:
 
   if (bestMoveUci && !playerPlayedBest) {
     userParts.push(
-      `The engine's best move was ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}. The player played ${moveSan} instead. Tell them what the better move was and why it's stronger.`
+      `The engine's best move was ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}. The player played ${moveSan} instead. You MUST tell the player what the better move was and explain why it's stronger. Never just say the move was bad without suggesting what they should have done instead.`
     );
   }
 
@@ -200,23 +202,29 @@ function generateFallbackMessage(
   opening,
   moveNumber
 ) {
+  const bestMoveStr = bestMoveUci
+    ? `${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}`
+    : null;
+
   const messages = {
     best: `Excellent move with ${moveSan}! That's the engine's top choice.`,
     great: `Great move with ${moveSan}! Nearly the best option available.`,
-    good: `Decent move with ${moveSan}, but there was something slightly better.`,
+    good: `Decent move with ${moveSan}, but there was something slightly better${
+      bestMoveStr ? ` — consider ${bestMoveStr} instead.` : "."
+    }`,
     inaccuracy: `That move (${moveSan}) is a slight inaccuracy. ${
-      bestMoveUci
-        ? `The best move was ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}.`
+      bestMoveStr
+        ? `The best move was ${bestMoveStr} — it keeps your position stronger.`
         : "Consider looking for a stronger alternative."
     }`,
     mistake: `That move (${moveSan}) is a mistake — it loses significant ground. ${
-      bestMoveUci
-        ? `Instead, consider ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}.`
-        : ""
+      bestMoveStr
+        ? `Instead, you should have played ${bestMoveStr} to keep the game balanced.`
+        : "Look for a move that doesn't give up material or position."
     }`,
     blunder: `That move (${moveSan}) is a blunder! ${
-      bestMoveUci
-        ? `The best move was ${bestMoveUci.slice(0, 2)} to ${bestMoveUci.slice(2, 4)}.`
+      bestMoveStr
+        ? `The best move was ${bestMoveStr} — it would have kept you in the game.`
         : "This seriously weakens your position."
     }`,
   };
