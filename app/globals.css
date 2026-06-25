@@ -1134,6 +1134,24 @@ a:hover {
   border-color: var(--accent);
 }
 
+.recommended-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(34, 177, 76, 0.25);
+  color: #22b14c;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
+.bot-type-btn.active .recommended-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
 .bot-type-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;

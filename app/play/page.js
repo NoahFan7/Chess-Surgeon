@@ -770,7 +770,7 @@ export default function PlayPage() {
               onClick={() => setBotType("stockfish")}
               disabled={gameStarted && !gameOver}
             >
-              Stockfish
+              Stockfish <span className="recommended-tag">Recommended</span>
             </button>
             <button
               className={`bot-type-btn ${botType === "llm" ? "active" : ""}`}
