@@ -80,6 +80,7 @@ export default function PlayPage() {
   const preset = getPresetByElo(effectiveElo);
 
   // Refs to avoid retriggering the bot effect when non-essential state changes
+  const selectedPreset = getPresetByElo(elo);
   const presetRef = useRef(preset);
   const gameOverRef = useRef(gameOver);
 
@@ -799,7 +800,7 @@ export default function PlayPage() {
             ))}
           </div>
           <span className="elo-label">
-            {preset.label} — {preset.description}
+            {selectedPreset.label} — {selectedPreset.description}
           </span>
         </div>
         )}
