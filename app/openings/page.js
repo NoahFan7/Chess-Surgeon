@@ -218,6 +218,28 @@ export default function OpeningsPage() {
             <p className="move-side-title">Strategy: {line.name}</p>
             <p className="opening-strategy-text">{line.strategy}</p>
           </div>
+
+          {/* YouTube video */}
+          {opening.videoId && (
+            <div className="opening-video">
+              <p className="move-side-title">Watch & Learn</p>
+              <a
+                href={`https://www.youtube.com/watch?v=${opening.videoId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="opening-video-link"
+              >
+                <img
+                  src={`https://img.youtube.com/vi/${opening.videoId}/hqdefault.jpg`}
+                  alt={opening.videoTitle || opening.name}
+                  className="opening-video-thumb"
+                />
+                <span className="opening-video-title">
+                  {opening.videoTitle || `${opening.name} — GothamChess`}
+                </span>
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
