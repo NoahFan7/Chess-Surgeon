@@ -23,11 +23,11 @@ export default function HomePage() {
             move-by-move feedback from Stockfish.
           </p>
         </Link>
-        <Link className="card" href="/history">
-          <h2>Find similar master games</h2>
+        <Link className="card" href="/openings">
+          <h2>Learn openings</h2>
           <p>
-            From any position, search historical professional games that reached
-            a similar spot and see what the pros played.
+            Step through classic chess openings move by move. See highlights,
+            coach advice, and key ideas for each position.
           </p>
         </Link>
         <Link className="card" href="/learn">

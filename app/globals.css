@@ -554,7 +554,7 @@ a:hover {
 /* Chessboard layout */
 .board-layout-coach {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  grid-template-columns: 360px minmax(0, 1fr) 280px;
   gap: 1.5rem;
   align-items: start;
 }
@@ -1570,3 +1570,130 @@ a:hover {
   border-color: var(--accent);
   text-decoration: none;
 }
+
+/* Openings page */
+.page-intro {
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+  max-width: 600px;
+}
+
+.openings-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.openings-sidebar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.openings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.opening-item {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.opening-item:hover {
+  background: var(--accent-dim, rgba(74, 144, 226, 0.15));
+}
+
+.opening-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.openings-main {
+  min-width: 0;
+}
+
+.opening-info h2 {
+  margin-bottom: 0.5rem;
+}
+
+.opening-desc {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.opening-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.opening-step {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.opening-tips ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.opening-tips li {
+  margin-bottom: 0.35rem;
+}
+
+.opening-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.opening-move {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.opening-move.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+@media (max-width: 1024px) {
+  .openings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .openings-sidebar {
+    position: static;
+  }
+
+  .openings-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
