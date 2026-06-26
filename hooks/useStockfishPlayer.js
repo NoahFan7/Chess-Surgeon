@@ -19,7 +19,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
  *   getMove, analyze, stop
  * }
  */
-export default function useStockfishPlayer({ onComplete } = {}) {
+export default function useStockfishPlayer({ onComplete, silent = false } = {}) {
   const workerRef = useRef(null);
   const resolverRef = useRef(null);
   const fenRef = useRef(null);
@@ -129,10 +129,12 @@ export default function useStockfishPlayer({ onComplete } = {}) {
           latestEvalRef.current = { evalScore, evalType, pv, depth };
         }
 
-        setResult((prev) => {
-          if (depth < prev.depth && evalType) return prev;
-          return { ...prev, evalScore, evalType, pv, depth };
-        });
+        if (!silent) {
+          setResult((prev) => {
+            if (depth < prev.depth && evalType) return prev;
+            return { ...prev, evalScore, evalType, pv, depth };
+          });
+        }
       }
 
       if (line.startsWith("bestmove")) {

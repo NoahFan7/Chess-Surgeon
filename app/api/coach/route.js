@@ -1,8 +1,24 @@
-import { NextResponse } from "next/server";
-
 const INFER_URL = process.env.INFER_TO_GO_URL || process.env.INFER_TO_GO_API_URL;
 const INFER_KEY = process.env.INFER_TO_GO_API_KEY || process.env.INFER_TO_GO_KEY;
 const MODEL = process.env.COACH_MODEL || "zai-org/glm-5.2";
+
+function streamText(text) {
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(text));
+        controller.close();
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    }
+  );
+}
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
@@ -25,20 +41,21 @@ export async function POST(request) {
     isCheckmate,
   } = body;
 
+  const fallbackArgs = [
+    classification,
+    moveSan,
+    bestMoveUci,
+    playerPlayedBest,
+    opening,
+    moveNumber,
+  ];
+
   if (!fen) {
-    return NextResponse.json({ error: "Missing fen" }, { status: 400 });
+    return streamText("I need a position to coach you on. Make a move first!");
   }
 
   if (!INFER_URL || !INFER_KEY) {
-    return NextResponse.json({
-      message: generateFallbackMessage(
-        classification,
-        moveSan,
-        bestMoveUci,
-        opening,
-        moveNumber
-      ),
-    });
+    return streamText(generateFallbackMessage(...fallbackArgs));
   }
 
   const systemPrompt = `You are a friendly but honest chess coach for beginners. Keep your responses to 2-3 sentences in plain English. Never use numbers, evaluations, or technical notation like "+0.75" or "pawn advantage." Instead of numbers, describe who's doing better in plain words like "you're in a good spot" or "you're falling behind here." Explain WHY a move is good or bad in simple terms a beginner can understand.
@@ -149,49 +166,87 @@ CRITICAL RULES:
         ],
         max_tokens: 800,
         temperature: 0.7,
+        stream: true,
       }),
       signal: AbortSignal.timeout(30000),
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-    return NextResponse.json({
-      message: generateFallbackMessage(
-        classification,
-        moveSan,
-        bestMoveUci,
-        playerPlayedBest,
-        opening,
-        moveNumber
-      ),
+      return streamText(generateFallbackMessage(...fallbackArgs));
+    }
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let hasContent = false;
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = res.body.getReader();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+              const data = trimmed.slice(5).trim();
+              if (data === "[DONE]") {
+                if (!hasContent) {
+                  controller.enqueue(
+                    encoder.encode(generateFallbackMessage(...fallbackArgs))
+                  );
+                }
+                controller.close();
+                return;
+              }
+
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta;
+                if (delta?.content) {
+                  hasContent = true;
+                  controller.enqueue(encoder.encode(delta.content));
+                }
+              } catch {
+                // ignore JSON parse errors on partial lines
+              }
+            }
+          }
+
+          if (!hasContent) {
+            controller.enqueue(
+              encoder.encode(generateFallbackMessage(...fallbackArgs))
+            );
+          }
+          controller.close();
+        } catch (e) {
+          if (!hasContent) {
+            controller.enqueue(
+              encoder.encode(generateFallbackMessage(...fallbackArgs))
+            );
+          }
+          controller.close();
+        }
+      },
     });
-  }
 
-    const data = await res.json();
-    const choice = data.choices?.[0]?.message;
-    const message =
-      choice?.content ||
-      generateFallbackMessage(
-        classification,
-        moveSan,
-        bestMoveUci,
-        playerPlayedBest,
-        opening,
-        moveNumber
-      );
-
-    return NextResponse.json({ message });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    });
   } catch (e) {
-    return NextResponse.json({
-      message: generateFallbackMessage(
-        classification,
-        moveSan,
-        bestMoveUci,
-        playerPlayedBest,
-        opening,
-        moveNumber
-      ),
-    });
+    return streamText(generateFallbackMessage(...fallbackArgs));
   }
 }
 

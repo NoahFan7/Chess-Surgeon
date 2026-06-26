@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { TACTIC_KEYWORDS } from "../lib/tactics";
 
@@ -98,32 +98,6 @@ export default function CoachPanel({
   isAnalyzing,
   isThinking,
 }) {
-  const [displayedMessage, setDisplayedMessage] = useState("");
-  const [typing, setTyping] = useState(false);
-
-  // Typewriter effect for coach messages
-  useEffect(() => {
-    if (!message) {
-      setDisplayedMessage("");
-      return;
-    }
-
-    setTyping(true);
-    setDisplayedMessage("");
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < message.length) {
-        setDisplayedMessage(message.slice(0, i + 1));
-        i++;
-      } else {
-        setTyping(false);
-        clearInterval(interval);
-      }
-    }, 20);
-
-    return () => clearInterval(interval);
-  }, [message]);
-
   const mood = useMemo(() => {
     if (!classification) return "neutral";
     if (["best", "great"].includes(classification)) return "happy";
@@ -144,13 +118,13 @@ export default function CoachPanel({
   return (
     <div className="coach-panel">
       <div className="coach-header">
-        <CoachAvatar talking={typing} mood={mood} />
+        <CoachAvatar talking={false} mood={mood} />
         <div className="coach-bubble">
-          {displayedMessage
-            ? renderWithTacticLinks(displayedMessage)
-            : (isAnalyzing ? "Let me analyze this position..." : "Make a move and I'll coach you through it!")}
-          {typing && <span className="coach-cursor">|</span>}
-          {isThinking && !typing && <span className="coach-thinking">Thinking...</span>}
+          {message
+            ? renderWithTacticLinks(message)
+            : (isThinking
+              ? "Analyzing your move..."
+              : "Make a move and I'll coach you through it!")}
         </div>
       </div>
 

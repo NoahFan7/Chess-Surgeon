@@ -12,7 +12,7 @@ import {
   isMoveBest,
   uciToArrow,
 } from "../../lib/chessAnalysis";
-import { coachMove as coachMoveFallback, coachMoveWithoutEval as coachMoveWithoutEvalFallback } from "../../lib/chessCoach";
+import { coachMoveWithoutEval as coachMoveWithoutEvalFallback, generateEngineCoachFeedback } from "../../lib/chessCoach";
 import SimilarGamesPanel from "../../components/SimilarGamesPanel";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
@@ -68,6 +68,9 @@ function buildHistory(sans) {
         to: move.to,
         san: move.san,
         color: move.color,
+        piece: move.piece,
+        captured: move.captured,
+        promotion: move.promotion,
       });
       fens.push(game.fen());
     } catch {
@@ -292,55 +295,38 @@ export default function AnalyzePage() {
 
     setCoachClassification(classification);
 
-    // Show immediate fallback while LLM is loading
-    const fallback = hasFullEval
-      ? coachMoveFallback(move, classification, before, after, before.bestMove, currentGame)
-      : (() => {
-          const gameBefore = new Chess();
-          try { gameBefore.load(beforeFen); } catch {}
-          return currentGame ? coachMoveWithoutEvalFallback(move, currentGame, gameBefore) : "";
-        })();
-    setCoachMessage(fallback);
+    // Generate engine-grounded feedback (chess.com style — no LLM call).
+    // Uses the engine's own eval data + board analysis for instant, accurate,
+    // stable feedback. Set once, never overwritten.
+    if (hasFullEval) {
+      const gameAfter = new Chess();
+      try { gameAfter.load(afterFen); } catch {}
 
-    // Call LLM coach for deep feedback
-    const fetchLLMCoach = async () => {
-      setCoachLoading(true);
-      try {
-        const recentMoves = displayedMoves.slice(Math.max(0, activeIndex - 5), activeIndex + 1)
-          .map(m => m.san);
+      const gameBeforeMove = new Chess();
+      try { gameBeforeMove.load(beforeFen); } catch {}
 
-        const res = await fetch("/api/coach", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fen,
-            moveSan: move.san,
-            movePiece: move.piece,
-            moveCaptured: move.captured,
-            classification,
-            evalBefore: before,
-            evalAfter: after,
-            bestMoveUci: before?.bestMove,
-            opening: currentGame ? undefined : undefined,
-            moveNumber: activeIndex + 1,
-            turn: fen.split(" ")[1] === "b" ? "black" : "white",
-            pgnMoves: recentMoves,
-            isCheck: currentGame?.inCheck(),
-            isCheckmate: currentGame?.isCheckmate(),
-          }),
-        });
-        const data = await res.json();
-        if (data.message) {
-          setCoachMessage(data.message);
-        }
-      } catch {
-        // keep fallback message
-      } finally {
-        setCoachLoading(false);
-      }
-    };
+      const feedback = generateEngineCoachFeedback({
+        move,
+        classification,
+        evalBefore: before,
+        evalAfter: after,
+        bestMoveUci: before.bestMove,
+        game: gameAfter,
+        gameBefore: gameBeforeMove,
+        moveNumber: Math.floor(activeIndex / 2) + 1,
+      });
 
-    fetchLLMCoach();
+      setCoachMessage(feedback);
+      setCoachLoading(false);
+    } else {
+      const gameBefore = new Chess();
+      try { gameBefore.load(beforeFen); } catch {}
+      const fallback = currentGame
+        ? coachMoveWithoutEvalFallback(move, currentGame, gameBefore)
+        : "";
+      setCoachMessage(fallback);
+      setCoachLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classifications, currentPly, moves.length, fen, evalCache]);
 

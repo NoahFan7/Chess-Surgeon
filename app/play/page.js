@@ -7,8 +7,8 @@ import MoveList from "../../components/MoveList";
 import CoachPanel from "../../components/CoachPanel";
 import useStockfishPlayer from "../../hooks/useStockfishPlayer";
 import { ELO_PRESETS, DEFAULT_ELO, getPresetByElo } from "../../lib/eloLevels";
-import { classifyMove, isMoveBest, uciToArrow, uciToSan } from "../../lib/chessAnalysis";
-import { coachMoveWithoutEval, detectBlunder, PIECE_NAMES } from "../../lib/chessCoach";
+import { classifyMove, isMoveBest, uciToArrow } from "../../lib/chessAnalysis";
+import { detectBlunder, generateInstantFeedback } from "../../lib/chessCoach";
 import { LLM_MODELS, DEFAULT_LLM_MODEL, getLLMModel } from "../../lib/llmModels";
 
 const ChessBoard = dynamic(() => import("../../components/ChessBoard"), {
@@ -74,6 +74,7 @@ export default function PlayPage() {
   }, []);
 
   const stockfish = useStockfishPlayer({ onComplete });
+  const analysisEngine = useStockfishPlayer({ onComplete, silent: true });
 
   const playerColorCode = playerColor === "white" ? "w" : "b";
   const botColorCode = playerColor === "white" ? "b" : "w";
@@ -337,7 +338,7 @@ export default function PlayPage() {
   const coachAnalyzedRef = useRef({});
 
   useEffect(() => {
-    if (!stockfish.isReady || !gameStarted || gameOver) return;
+    if (!analysisEngine.isReady || !gameStarted || gameOver) return;
     if (turn !== playerColorCode) return;
     if (!coachEnabled) return;
     if (evalCache[fen] || coachAnalyzedRef.current[fen]) return;
@@ -345,13 +346,13 @@ export default function PlayPage() {
     coachAnalyzedRef.current[fen] = true;
 
     const timer = setTimeout(() => {
-      stockfish.analyze(fen, { depth: COACH_DEPTH });
-    }, 400);
+      analysisEngine.analyze(fen, { depth: COACH_DEPTH });
+    }, 100);
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    stockfish.isReady,
+    analysisEngine.isReady,
     fen,
     turn,
     playerColorCode,
@@ -439,126 +440,6 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evalCache, moves, positionFens, playerColorCode]);
 
-  // ---- Post-bot-move coach update ----
-  // After the bot moves, it stores the eval of the position after the player's
-  // move. This effect detects when a NEW classification comes in for the
-  // player's most recent move and updates the coach message with accurate
-  // feedback, then calls the LLM once with full classification data.
-  //
-  // This is the ONLY place the LLM coach is called — handleBoardMove just
-  // shows immediate feedback, and this effect fires after the bot responds
-  // with accurate eval data. This prevents critical feedback from being
-  // overwritten by a generic LLM response before the player can read it.
-  const lastCoachedMoveIdxRef = useRef(-1);
-  const coachMessageTimeRef = useRef(0);
-
-  useEffect(() => {
-    if (!coachEnabled || !gameStarted || gameOver) return;
-
-    // Find the player's most recent move
-    let lastPlayerMoveIdx = -1;
-    for (let i = moves.length - 1; i >= 0; i--) {
-      if (moves[i].color === playerColorCode) {
-        lastPlayerMoveIdx = i;
-        break;
-      }
-    }
-    if (lastPlayerMoveIdx < 0) return;
-
-    // Only update if this move just got classified and we haven't coached it yet
-    const classification = classifications[lastPlayerMoveIdx];
-    if (!classification) return;
-    if (lastCoachedMoveIdxRef.current >= lastPlayerMoveIdx) return;
-
-    lastCoachedMoveIdxRef.current = lastPlayerMoveIdx;
-
-    const move = moves[lastPlayerMoveIdx];
-    const beforeFen = positionFens[lastPlayerMoveIdx];
-    const afterFen = positionFens[lastPlayerMoveIdx + 1];
-    const before = evalCache[beforeFen];
-    const after = evalCache[afterFen];
-
-    if (!before || !after) return;
-
-    // Build updated feedback with accurate classification
-    const bestSan = before.bestMove ? uciToSan(before.bestMove, beforeFen) : null;
-    const isCritical = ["inaccuracy", "mistake", "blunder"].includes(classification);
-
-    const classLabels = {
-      best: "the engine's top choice",
-      great: "a great move",
-      good: "a decent move",
-      inaccuracy: "a slight inaccuracy",
-      mistake: "a mistake",
-      blunder: "a blunder",
-    };
-
-    let updatedMessage;
-    if (isCritical) {
-      if (bestSan) {
-        updatedMessage = `${move.san} was ${classLabels[classification]}. The engine suggests ${bestSan} instead. Let me break down what went wrong...`;
-      } else {
-        updatedMessage = `${move.san} was ${classLabels[classification]}. Let me break down what went wrong...`;
-      }
-    } else if (classification === "best") {
-      updatedMessage = `Excellent! ${move.san} was ${classLabels[classification]}. Let me tell you why it's so good...`;
-    } else {
-      if (bestSan) {
-        updatedMessage = `${move.san} was ${classLabels[classification]}, but the engine suggests ${bestSan} was slightly better. Let me explain...`;
-      } else {
-        updatedMessage = `${move.san} was ${classLabels[classification]}. Let me explain...`;
-      }
-    }
-
-    setCoachMessage(updatedMessage);
-    setCoachClassification(classification);
-    coachMessageTimeRef.current = Date.now();
-
-    // Call LLM coach with full classification + eval info
-    setCoachLoading(true);
-    const recentSans = moves
-      .slice(Math.max(0, lastPlayerMoveIdx - 5), lastPlayerMoveIdx + 1)
-      .map((m) => m.san);
-
-    // Delay LLM call for critical feedback so the player has time to read it
-    const llmDelay = isCritical ? 3500 : 1000;
-
-    const timer = setTimeout(() => {
-      fetch("/api/coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fen: afterFen,
-          moveSan: move.san,
-          movePiece: move.piece,
-          moveCaptured: move.captured,
-          classification,
-          blunderDetail: null,
-          bestMoveUci: before.bestMove || null,
-          playerPlayedBest: classification === "best",
-          evalBefore: before,
-          evalAfter: after,
-          moveNumber: Math.floor(lastPlayerMoveIdx / 2) + 1,
-          turn: move.color === "w" ? "black" : "white",
-          pgnMoves: recentSans,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          // Only overwrite if enough time has passed (player could have
-          // started a new move)
-          if (data.message && lastCoachedMoveIdxRef.current === lastPlayerMoveIdx) {
-            setCoachMessage(data.message);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setCoachLoading(false));
-    }, llmDelay);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classifications, evalCache, moves, positionFens, playerColorCode, coachEnabled, gameStarted, gameOver]);
-
   // ---- Player move handler ----
   const handleBoardMove = useCallback(
     ({ move, fen: newFen, isCheck, isCheckmate, isDraw }) => {
@@ -589,7 +470,10 @@ export default function PlayPage() {
       }
       updateStatus(game);
 
-      // Coach feedback
+      // Coach feedback — generated INSTANTLY using engine eval data (if
+      // available from the analysis engine) + heuristic blunder detection.
+      // No waiting for the bot to move. The message is set once and never
+      // overwritten.
       if (coachEnabled) {
         const prevFen = positionFens[positionFens.length - 1];
         const gameBefore = new Chess();
@@ -599,68 +483,59 @@ export default function PlayPage() {
           // ignore
         }
 
-        // Look up engine eval of the position BEFORE the player's move
         const beforeEval = evalCache[prevFen];
-        const playerPlayedBest = beforeEval?.bestMove
-          ? isMoveBest(move.from, move.to, beforeEval.bestMove)
-          : false;
 
-        // Detect blunders heuristically
-        const blunder = detectBlunder(game);
-
-        // Classify: blunder (heuristic) > best (engine) > unknown
+        let feedback;
         let heuristicClassification = null;
-        if (blunder) {
-          heuristicClassification = "blunder";
-        } else if (playerPlayedBest) {
-          heuristicClassification = "best";
-        }
+        try {
+          const playerPlayedBest = beforeEval?.bestMove
+            ? isMoveBest(move.from, move.to, beforeEval.bestMove)
+            : false;
 
-        // Build immediate feedback
-        let immediate;
-        if (blunder) {
-          immediate = coachMoveWithoutEval(move, game, gameBefore);
-        } else if (beforeEval?.bestMove && !playerPlayedBest) {
-          // Player didn't play the best move — suggest it in SAN
-          const bestSan = uciToSan(beforeEval.bestMove, prevFen);
-          if (bestSan) {
-            immediate = `${move.san} is okay, but the engine suggests ${bestSan} was stronger. I'm getting you a deeper analysis...`;
+          const blunder = detectBlunder(game);
+
+          if (blunder) {
+            heuristicClassification = "blunder";
+          } else if (playerPlayedBest) {
+            heuristicClassification = "best";
           } else {
-            immediate = `${move.san} is okay, but there was a stronger move available. I'm getting you a deeper analysis...`;
+            heuristicClassification = "good";
           }
-        } else if (playerPlayedBest) {
-          immediate = `Excellent! ${move.san} is the engine's top choice. I'm getting you a deeper analysis...`;
-        } else {
-          immediate = coachMoveWithoutEval(move, game, gameBefore);
+
+          feedback = generateInstantFeedback({
+            move,
+            game,
+            gameBefore,
+            beforeEval: beforeEval || null,
+            moveNumber: Math.floor(moves.length / 2) + 1,
+          });
+        } catch {
+          feedback = `${move.san} — ${move.captured ? `captures a ${move.captured}.` : "a reasonable move."} Keep developing your pieces and looking for tactics.`;
         }
 
-        setCoachMessage(immediate);
+        setCoachMessage(feedback);
         setCoachClassification(heuristicClassification);
         setCoachLoading(false);
-        // LLM coach call is handled by the post-bot-move effect, which has
-        // accurate classification data (before + after eval comparison).
-        // This prevents the critical feedback from being overwritten by a
-        // generic LLM response before the player has time to read it.
       }
     },
-    [coachEnabled, moves, positionFens, updateStatus]
+    [coachEnabled, moves, positionFens, evalCache, updateStatus]
   );
 
   // ---- Hint: analyze current position on demand ----
   const hintRequestedRef = useRef(null);
 
   useEffect(() => {
-    if (!showHint || !isPlayerTurn || !stockfish.isReady) return;
+    if (!showHint || !isPlayerTurn || !analysisEngine.isReady) return;
     if (evalCache[fen]?.bestMove) return;
     if (hintRequestedRef.current === fen) return;
     hintRequestedRef.current = fen;
 
-    stockfish.analyze(fen, { depth: 15 });
+    analysisEngine.analyze(fen, { depth: 15 });
   }, [
     showHint,
     isPlayerTurn,
     fen,
-    stockfish,
+    analysisEngine,
     evalCache,
   ]);
 
@@ -675,11 +550,11 @@ export default function PlayPage() {
 
   // Current eval for display
   const currentEval = evalCache[fen] || {
-    evalScore: stockfish.evalScore,
-    evalType: stockfish.evalType,
-    bestMove: stockfish.bestMove,
-    pv: stockfish.pv,
-    depth: stockfish.depth,
+    evalScore: null,
+    evalType: null,
+    bestMove: null,
+    pv: [],
+    depth: 0,
   };
 
   // ---- Game controls ----
@@ -704,7 +579,7 @@ export default function PlayPage() {
     setEffectiveElo(elo);
     lastAdaptedAtRef.current = 0;
     setBotRetry(0);
-    lastCoachedMoveIdxRef.current = -1;
+    setCoachLoading(false);
     coachAnalyzedRef.current = {};
     hintRequestedRef.current = null;
     botThinkingForRef.current = null;
@@ -943,8 +818,8 @@ export default function PlayPage() {
             game={currentGame}
             bestMoveUci={currentEval.bestMove}
             classification={coachClassification}
-            isAnalyzing={stockfish.isThinking}
-            isThinking={coachLoading}
+            isAnalyzing={false}
+            isThinking={false}
           />
           <div className="board-layout">
             <div className="play-board-area">
