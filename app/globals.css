@@ -1613,7 +1613,176 @@ a:hover {
   margin: 0.75rem 0 0;
 }
 
-/* ===== Tactic links in coach messages ===== */
+/* ===== Animated homepage background ===== */
+.home-page {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-bg-scene {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.home-bg-svg {
+  width: 100%;
+  height: 100%;
+  min-width: 800px;
+}
+
+/* Surgeon breathing animation */
+.bg-surgeon-body {
+  animation: breathe 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.02); }
+}
+
+/* Patient breathing (slightly irregular) */
+.bg-patient-body {
+  animation: breathe-patient 5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes breathe-patient {
+  0%, 100% { transform: scaleY(1); }
+  30% { transform: scaleY(1.03); }
+  60% { transform: scaleY(1.01); }
+}
+
+/* Patient's arm reaching toward board */
+.bg-patient-arm {
+  animation: arm-reach 6s ease-in-out infinite;
+  transform-origin: 100px 120px;
+}
+
+@keyframes arm-reach {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(-5deg); }
+  60% { transform: rotate(-8deg); }
+}
+
+/* Patient hand with piece */
+.bg-patient-hand {
+  animation: hand-hover 6s ease-in-out infinite;
+}
+
+@keyframes hand-hover {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+  60% { transform: translateY(-4px); }
+}
+
+/* Knight piece moving on the board */
+.bg-knight-move {
+  animation: knight-hop 8s ease-in-out infinite;
+}
+
+@keyframes knight-hop {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(0, -30px); }
+  40% { transform: translate(-40px, -20px); }
+  50% { transform: translate(-40px, 0); }
+  90% { transform: translate(-40px, 0); }
+  95% { transform: translate(0, 0); }
+}
+
+/* Move trail on the board */
+.bg-move-trail {
+  animation: trail-fade 8s ease-in-out infinite;
+}
+
+@keyframes trail-fade {
+  0%, 19% { opacity: 0; }
+  20% { opacity: 1; }
+  50% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+
+/* Queen piece subtle pulse */
+.bg-piece-queen {
+  animation: piece-glow 4s ease-in-out infinite;
+}
+
+@keyframes piece-glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* King piece alert glow */
+.bg-piece-king {
+  animation: king-alert 3s ease-in-out infinite;
+}
+
+@keyframes king-alert {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; filter: drop-shadow(0 0 4px rgba(226,56,56,0.4)); }
+}
+
+/* IV drip blinking */
+.bg-iv-drip {
+  animation: iv-blink 2s ease-in-out infinite;
+}
+
+@keyframes iv-blink {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Patient blinking */
+.bg-patient-eye {
+  animation: blink-eye 5s ease-in-out infinite;
+}
+
+@keyframes blink-eye {
+  0%, 90%, 100% { transform: scaleY(1); }
+  93%, 97% { transform: scaleY(0.1); }
+}
+
+/* Floating symbols drifting */
+.bg-float-symbols {
+  animation: float-drift 20s linear infinite;
+}
+
+@keyframes float-drift {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(10px, -15px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* EKG line heartbeat */
+.bg-ekg-line {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: ekg-draw 6s linear infinite;
+}
+
+@keyframes ekg-draw {
+  from { stroke-dashoffset: 1400; }
+  to { stroke-dashoffset: -1400; }
+}
+
+/* Hero and cards overlay above the background */
+.hero-overlay {
+  position: relative;
+  z-index: 1;
+}
+
+.cards-overlay {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== Original styles continue ===== */
 
 .tactic-link {
   color: #5bc0de;
