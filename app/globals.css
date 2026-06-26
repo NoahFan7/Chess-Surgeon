@@ -1571,6 +1571,56 @@ a:hover {
   text-decoration: none;
 }
 
+/* Tactic examples — step-through stepper */
+.tactic-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tactic-step-label {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tactic-result {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.tactic-result p {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+}
+
+.tactic-explanation-box {
+  background: var(--accent-dim, rgba(74, 144, 226, 0.1));
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.tactic-explanation-box p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.tactic-examples {
+  margin-bottom: 1.5rem;
+}
+
+
 /* Openings page */
 .page-intro {
   color: var(--muted);
