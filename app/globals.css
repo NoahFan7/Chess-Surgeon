@@ -1,10 +1,17 @@
 :root {
-  --bg: #0f1320;
-  --panel: #1a2030;
+  --bg: #0a0e1a;
+  --panel: #121829;
   --text: #e6e9f2;
-  --muted: #9aa3b8;
-  --accent: #4a90e2;
-  --border: #2a3245;
+  --muted: #7a849a;
+  --accent: #1a936f;
+  --accent-light: #2dd4a7;
+  --accent-dim: rgba(26, 147, 111, 0.15);
+  --border: #1e2839;
+  --surgical-red: #e23838;
+  --surgical-steel: #6b7a8f;
+  --scrub-teal: #1a936f;
+  --scrub-light: #2dd4a7;
+  --medical-white: #e8f4f0;
 }
 
 * {
@@ -24,6 +31,42 @@ body {
   flex-direction: column;
 }
 
+/* EKG heartbeat line animation in background */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--accent) 20%,
+    var(--accent) 22%,
+    transparent 23%,
+    transparent 40%,
+    var(--accent) 42%,
+    var(--surgical-red) 44%,
+    var(--accent) 46%,
+    transparent 47%,
+    transparent 70%,
+    var(--accent) 72%,
+    var(--accent) 74%,
+    transparent 75%,
+    transparent 100%
+  );
+  background-size: 300px 100%;
+  opacity: 0.15;
+  z-index: 9999;
+  animation: ekg-scan 6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes ekg-scan {
+  from { background-position: 0 0; }
+  to { background-position: 300px 0; }
+}
+
 a {
   color: var(--accent);
   text-decoration: none;
@@ -39,13 +82,39 @@ a:hover {
   justify-content: space-between;
   padding: 0.85rem 1.5rem;
   background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent);
+  box-shadow: 0 2px 12px rgba(26, 147, 111, 0.1);
 }
 
 .brand {
-  font-weight: 700;
-  font-size: 1.2rem;
+  font-weight: 800;
+  font-size: 1.25rem;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.brand::before {
+  content: "";
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 5px;
+  position: relative;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 3v6H3v6h6v6h6v-6h6V9h-6V3z' fill='white'/></svg>") center/contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 3v6H3v6h6v6h6v-6h6V9h-6V3z' fill='white'/></svg>") center/contain no-repeat;
+  animation: heartbeat 2s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  10% { transform: scale(1.15); }
+  20% { transform: scale(1); }
+  30% { transform: scale(1.1); }
+  40% { transform: scale(1); }
 }
 
 .site-nav {
@@ -56,10 +125,30 @@ a:hover {
 .site-nav a {
   color: var(--muted);
   font-size: 0.95rem;
+  font-weight: 600;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.site-nav a::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform: scaleX(0);
+  transition: transform 0.2s;
 }
 
 .site-nav a:hover {
-  color: var(--text);
+  color: var(--accent-light);
+}
+
+.site-nav a:hover::after {
+  transform: scaleX(1);
 }
 
 .site-main {
@@ -76,6 +165,13 @@ a:hover {
   color: var(--muted);
   font-size: 0.85rem;
   border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.site-footer::before {
+  content: "\\2695";
+  margin-right: 0.5rem;
+  opacity: 0.4;
 }
 
 .hero {
@@ -84,8 +180,12 @@ a:hover {
 }
 
 .hero h1 {
-  font-size: 2.4rem;
+  font-size: 2.6rem;
   margin: 0 0 1rem;
+  background: linear-gradient(135deg, var(--text), var(--accent-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero p {
@@ -109,12 +209,33 @@ a:hover {
   border-radius: 10px;
   padding: 1.25rem;
   text-align: left;
-  transition: border-color 0.15s ease;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s;
 }
 
 .card:hover {
   border-color: var(--accent);
   text-decoration: none;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(26, 147, 111, 0.12);
+}
+
+.card:hover::before {
+  transform: scaleX(1);
 }
 
 .card h2 {
@@ -136,12 +257,16 @@ a:hover {
   color: #fff;
   padding: 0.7rem 1.4rem;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 700;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(26, 147, 111, 0.25);
 }
 
 .cta:hover {
   text-decoration: none;
-  opacity: 0.9;
+  background: var(--accent-light);
+  box-shadow: 0 6px 20px rgba(26, 147, 111, 0.35);
+  transform: translateY(-1px);
 }
 
 /* Input section */
@@ -206,7 +331,7 @@ a:hover {
 }
 
 .move-san.clickable:hover {
-  background: rgba(74, 144, 226, 0.3);
+  background: var(--accent-dim);
   border-radius: 3px;
 }
 
@@ -235,7 +360,7 @@ a:hover {
 .drop-zone:hover,
 .drop-zone.drag-over {
   border-color: var(--accent);
-  background: rgba(74, 144, 226, 0.08);
+  background: var(--accent-dim);
 }
 
 .drop-zone-text {
@@ -391,6 +516,23 @@ a:hover {
   overflow-y: auto;
 }
 
+.coach-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light), var(--accent));
+  border-radius: 10px 10px 0 0;
+  animation: pulse-line 3s ease-in-out infinite;
+}
+
+@keyframes pulse-line {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
 .coach-header {
   display: flex;
   gap: 0.75rem;
@@ -403,12 +545,18 @@ a:hover {
 }
 
 .coach-avatar.talking {
-  animation: bob 0.6s ease-in-out infinite alternate;
+  animation: heartbeat-bob 1.2s ease-in-out infinite;
 }
 
-@keyframes bob {
-  from { transform: translateY(0); }
-  to { transform: translateY(-3px); }
+@keyframes heartbeat-bob {
+  0%, 100% { transform: translateY(0); }
+  10% { transform: translateY(-4px); }
+  20% { transform: translateY(0); }
+  30% { transform: translateY(-2px); }
+  40% { transform: translateY(0); }
+  50% { transform: translateY(0); }
+  60% { transform: translateY(-1px); }
+  70% { transform: translateY(0); }
 }
 
 .coach-bubble {
@@ -433,6 +581,17 @@ a:hover {
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
   border-right: 8px solid var(--accent);
+}
+
+/* Surgical cross before coach message */
+.coach-bubble::after {
+  content: "\\2695";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.7rem;
+  opacity: 0.3;
+  color: #fff;
 }
 
 .coach-cursor {
@@ -529,7 +688,7 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  background: rgba(74, 144, 226, 0.15);
+  background: var(--accent-dim);
   border: 1px solid var(--accent);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
@@ -539,7 +698,7 @@ a:hover {
 .try-line-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-light);
 }
 
 .placeholder {
@@ -655,16 +814,45 @@ a:hover {
   font-size: 0.85rem;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.4s;
+}
+
+.btn:hover::before {
+  left: 100%;
 }
 
 .btn:hover {
-  opacity: 0.9;
+  background: var(--accent-light);
+  box-shadow: 0 2px 8px rgba(26, 147, 111, 0.3);
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn.secondary {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
+}
+
+.btn.secondary:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: none;
 }
 
 /* Move list */
@@ -1042,17 +1230,19 @@ a:hover {
   font-weight: 600;
   cursor: pointer;
   min-width: 2.8rem;
-  transition: border-color 0.15s, background 0.15s;
+  transition: all 0.2s;
 }
 
 .elo-btn:hover:not(:disabled) {
   border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .elo-btn.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(26, 147, 111, 0.3);
 }
 
 .elo-btn:disabled {
@@ -1081,17 +1271,19 @@ a:hover {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: all 0.2s;
 }
 
 .color-btn:hover:not(:disabled) {
   border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .color-btn.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(26, 147, 111, 0.3);
 }
 
 .color-btn:disabled {
@@ -1123,13 +1315,14 @@ a:hover {
 }
 
 .btn.danger {
-  background: #c0392b;
+  background: var(--surgical-red);
   color: #fff;
   border: none;
 }
 
 .btn.danger:hover {
-  opacity: 0.85;
+  background: #ff4a4a;
+  box-shadow: 0 2px 8px rgba(226, 56, 56, 0.3);
 }
 
 /* Bot type selector */
@@ -1147,17 +1340,19 @@ a:hover {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: all 0.2s;
 }
 
 .bot-type-btn:hover:not(:disabled) {
   border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .bot-type-btn.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(26, 147, 111, 0.3);
 }
 
 .recommended-tag {
@@ -1165,8 +1360,8 @@ a:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  background: rgba(34, 177, 76, 0.25);
-  color: #22b14c;
+  background: var(--accent-dim);
+  color: var(--accent-light);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   margin-left: 0.3rem;
@@ -1217,14 +1412,20 @@ a:hover {
 }
 
 .adaptive-note {
-  background: rgba(74, 144, 226, 0.15);
+  background: var(--accent-dim);
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 0.6rem 1rem;
   margin-bottom: 1rem;
   font-size: 0.88rem;
-  color: var(--accent);
+  color: var(--accent-light);
   font-weight: 600;
+  animation: slide-in 0.3s ease;
+}
+
+@keyframes slide-in {
+  from { transform: translateX(-10px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 .game-over-banner {
@@ -1281,8 +1482,8 @@ a:hover {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
-  animation: think-pulse 1.4s ease-in-out infinite;
+  background: var(--accent-light);
+  animation: heartbeat-dot 1.4s ease-in-out infinite;
 }
 
 .bot-thinking-dot:nth-child(2) {
@@ -1293,9 +1494,9 @@ a:hover {
   animation-delay: 0.4s;
 }
 
-@keyframes think-pulse {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1.2); }
+@keyframes heartbeat-dot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.3); }
 }
 
 .play-info {
@@ -1602,7 +1803,7 @@ a:hover {
 }
 
 .tactic-explanation-box {
-  background: var(--accent-dim, rgba(74, 144, 226, 0.1));
+  background: var(--accent-dim);
   border-left: 3px solid var(--accent);
   border-radius: 4px;
   padding: 0.75rem 1rem;
@@ -1663,7 +1864,7 @@ a:hover {
 }
 
 .opening-item:hover {
-  background: var(--accent-dim, rgba(74, 144, 226, 0.15));
+  background: var(--accent-dim);
 }
 
 .opening-item.active {
@@ -1767,12 +1968,14 @@ a:hover {
 
 .line-tab:hover {
   border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .line-tab.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(26, 147, 111, 0.3);
 }
 
 /* Core ideas section */

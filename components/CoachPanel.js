@@ -5,17 +5,18 @@ import Link from "next/link";
 import { TACTIC_KEYWORDS } from "../lib/tactics";
 
 /**
- * Coach avatar SVG — a friendly chess coach character.
+ * Coach avatar SVG — a chess surgeon character.
+ * Wears scrubs, a surgical cap, mask, and a stethoscope.
  */
 function CoachAvatar({ talking, mood = "neutral" }) {
-  const eyeY = talking ? 34 : 35;
+  const eyeY = 38;
   const mouthPath = talking
-    ? "M 48 52 Q 50 58 52 52"
+    ? "M 46 56 Q 50 62 54 56"
     : mood === "happy"
-    ? "M 45 50 Q 50 56 55 50"
+    ? "M 44 54 Q 50 60 56 54"
     : mood === "sad"
-    ? "M 45 54 Q 50 48 55 54"
-    : "M 45 51 Q 50 54 55 51";
+    ? "M 44 58 Q 50 52 56 58"
+    : "M 46 56 Q 50 59 54 56";
 
   return (
     <svg
@@ -24,33 +25,50 @@ function CoachAvatar({ talking, mood = "neutral" }) {
       viewBox="0 0 100 100"
       className={`coach-avatar ${talking ? "talking" : ""}`}
     >
-      {/* Hat */}
-      <ellipse cx="50" cy="22" rx="28" ry="8" fill="#4a90e2" />
-      <rect x="30" y="8" width="40" height="18" rx="4" fill="#4a90e2" />
-      <ellipse cx="50" cy="22" rx="20" ry="4" fill="#3a7bc8" />
+      {/* Stethoscope (behind body) */}
+      <path d="M 32 72 Q 26 80 30 88 Q 35 94 40 90" fill="none" stroke="#9aa3b8" strokeWidth="2" strokeLinecap="round" />
+      <path d="M 68 72 Q 74 80 70 88 Q 65 94 60 90" fill="none" stroke="#9aa3b8" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="40" cy="92" r="3" fill="#9aa3b8" />
+      <circle cx="60" cy="92" r="3" fill="#9aa3b8" />
+
+      {/* Surgical cap */}
+      <path d="M 28 28 Q 50 8 72 28 L 72 34 Q 50 24 28 34 Z" fill="#1a936f" />
+      <path d="M 28 30 Q 50 14 72 30 L 72 36 Q 50 26 28 36 Z" fill="#15967b" />
+      {/* Cap fold */}
+      <path d="M 45 14 Q 50 10 55 14 L 55 22 Q 50 18 45 22 Z" fill="#1a936f" />
 
       {/* Head */}
-      <circle cx="50" cy="40" r="18" fill="#f4d4b1" stroke="#d4a874" strokeWidth="1" />
+      <circle cx="50" cy="42" r="18" fill="#f4d4b1" stroke="#d4a874" strokeWidth="1" />
 
-      {/* Glasses */}
-      <circle cx="43" cy={eyeY} r="5" fill="none" stroke="#333" strokeWidth="1.5" />
-      <circle cx="57" cy={eyeY} r="5" fill="none" stroke="#333" strokeWidth="1.5" />
-      <line x1="48" y1={eyeY} x2="52" y2={eyeY} stroke="#333" strokeWidth="1.5" />
+      {/* Surgical mask */}
+      <path d="M 33 48 Q 50 46 67 48 L 67 62 Q 50 66 33 62 Z" fill="#e8f4f0" stroke="#b8d4cc" strokeWidth="1" />
+      <path d="M 33 48 L 28 46 L 28 54 L 33 52 Z" fill="#e8f4f0" stroke="#b8d4cc" strokeWidth="1" />
+      <path d="M 67 48 L 72 46 L 72 54 L 67 52 Z" fill="#e8f4f0" stroke="#b8d4cc" strokeWidth="1" />
+      {/* Mask pleats */}
+      <line x1="35" y1="52" x2="65" y2="52" stroke="#b8d4cc" strokeWidth="0.5" />
+      <line x1="35" y1="57" x2="65" y2="57" stroke="#b8d4cc" strokeWidth="0.5" />
 
-      {/* Eyes */}
-      <circle cx="43" cy={eyeY} r="1.5" fill="#333" />
-      <circle cx="57" cy={eyeY} r="1.5" fill="#333" />
+      {/* Eyes (visible above mask) */}
+      <circle cx="43" cy={eyeY} r="2" fill="#333" />
+      <circle cx="57" cy={eyeY} r="2" fill="#333" />
+      {/* Eyebrows */}
+      <line x1="40" y1="34" x2="46" y2="33" stroke="#d4a874" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="54" y1="33" x2="60" y2="34" stroke="#d4a874" strokeWidth="1.5" strokeLinecap="round" />
 
-      {/* Mouth */}
-      <path d={mouthPath} fill="none" stroke="#8B4513" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Mouth (behind mask — only visible when talking) */}
+      {talking && <path d={mouthPath} fill="none" stroke="#8B4513" strokeWidth="1.5" strokeLinecap="round" />}
 
-      {/* Body/Coat */}
-      <path d="M 30 58 Q 50 52 70 58 L 72 85 Q 50 90 28 85 Z" fill="#2a3a5c" />
-      <path d="M 45 58 L 50 65 L 55 58" fill="none" stroke="#1a2a4c" strokeWidth="1" />
+      {/* Scrubs (body) */}
+      <path d="M 30 64 Q 50 58 70 64 L 74 92 Q 50 98 26 92 Z" fill="#1a936f" />
+      {/* V-neck collar */}
+      <path d="M 42 64 L 50 74 L 58 64" fill="none" stroke="#15967b" strokeWidth="2" />
+      {/* Stethoscope on chest */}
+      <path d="M 40 70 Q 38 78 42 84 Q 46 88 50 86" fill="none" stroke="#9aa3b8" strokeWidth="1.5" />
+      <circle cx="50" cy="86" r="2.5" fill="#9aa3b8" />
 
-      {/* Bow tie */}
-      <path d="M 44 60 L 40 57 L 40 63 Z M 56 60 L 60 57 L 60 63 Z" fill="#c44" />
-      <circle cx="50" cy="60" r="2" fill="#a33" />
+      {/* Surgical cross badge */}
+      <rect x="64" y="72" width="8" height="8" rx="1" fill="#fff" opacity="0.9" />
+      <path d="M 67 73 L 69 73 L 69 75 L 71 75 L 71 77 L 69 77 L 69 79 L 67 79 L 67 77 L 65 77 L 65 75 L 67 75 Z" fill="#e23838" />
     </svg>
   );
 }
